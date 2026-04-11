@@ -1,0 +1,188 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wdth,wght@0,75..100,300..900;1,75..100,300..900&family=Assistant:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base RTL / Hebrew resets ─────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Logo-matched palette */
+    --color-primary:     #1D3480;   /* navy  — "Opti" + cart */
+    --color-primary-dk:  #152669;
+    --color-sky:         #29ABE2;   /* sky   — "Pay" + arrow */
+    --color-sky-dk:      #1A8EC4;
+    --color-accent:      #059669;   /* green — savings */
+    --color-surface:     #FFFFFF;
+    --color-bg:          #F4F7FD;
+    --color-border:      #DDE4F0;
+    --color-text:        #111827;
+    --color-muted:       #6B7280;
+    --nav-height:        4.5rem;
+    --safe-bottom:       env(safe-area-inset-bottom, 0px);
+    --safe-top:          env(safe-area-inset-top, 0px);
+  }
+
+  html {
+    direction: rtl;
+    font-family: 'Rubik', 'Assistant', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface-muted text-ink antialiased;
+    min-height: 100dvh;
+    padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
+    overscroll-behavior-y: none;
+  }
+
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* RTL-aware focus ring — sky blue */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-sky-400 ring-offset-2;
+  }
+
+  /* Remove autofill yellow in Chrome */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px white inset;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+}
+
+/* ── Reusable component classes ──────────────────────────────────────────── */
+@layer components {
+
+  /* Card surface */
+  .card {
+    @apply bg-surface rounded-3xl shadow-card p-4;
+  }
+
+  /* Primary button — logo navy */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-brand-700 hover:bg-brand-800 active:bg-brand-900
+           text-white font-semibold rounded-2xl
+           px-5 py-3 text-sm
+           transition-colors duration-150
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Secondary / ghost button */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-transparent border-2 border-brand-700
+           text-brand-700 hover:bg-brand-50 active:bg-brand-100
+           font-semibold rounded-2xl
+           px-5 py-3 text-sm
+           transition-colors duration-150
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Sky button — logo sky blue (CTAs, highlights) */
+  .btn-sky {
+    @apply inline-flex items-center justify-center gap-2
+           bg-sky-400 hover:bg-sky-500 active:bg-sky-600
+           text-white font-semibold rounded-2xl
+           px-5 py-3 text-sm
+           transition-colors duration-150
+           shadow-sky
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Accent / savings button */
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2
+           bg-accent-500 hover:bg-accent-600 active:bg-accent-700
+           text-white font-semibold rounded-2xl
+           px-5 py-3 text-sm
+           transition-colors duration-150
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Text input */
+  .input {
+    @apply w-full bg-surface border border-surface-border
+           rounded-2xl px-4 py-3 text-sm text-ink
+           placeholder:text-ink-faint
+           focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-transparent
+           transition duration-150;
+  }
+
+  /* Badge pill */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* Section heading */
+  .section-title {
+    @apply text-base font-bold text-ink mb-3;
+  }
+
+  /* Bottom sheet / drawer overlay */
+  .sheet-overlay {
+    @apply fixed inset-0 bg-black/40 z-40 animate-fade-in;
+  }
+
+  .sheet-panel {
+    @apply fixed bottom-0 inset-x-0 z-50
+           bg-surface rounded-t-4xl shadow-float
+           animate-slide-up
+           pb-[calc(1.5rem+env(safe-area-inset-bottom))];
+  }
+
+  /* Pull-to-refresh indicator area */
+  .ptr-area {
+    @apply flex items-center justify-center h-12 text-ink-muted text-sm;
+  }
+}
+
+/* ── Utility overrides ───────────────────────────────────────────────────── */
+@layer utilities {
+  /* Page container — max-width for tablet centering */
+  .page-container {
+    @apply mx-auto w-full max-w-md px-4;
+  }
+
+  /* Gradient header — navy → sky blue (matches logo palette) */
+  .gradient-header {
+    background: linear-gradient(135deg, #1D3480 0%, #2B4FAD 50%, #29ABE2 100%);
+  }
+
+  /* Gradient — navy to sky (horizontal, for cards/banners) */
+  .gradient-brand {
+    background: linear-gradient(90deg, #1D3480 0%, #29ABE2 100%);
+  }
+
+  /* Savings green text */
+  .text-savings {
+    @apply text-accent-600 font-bold;
+  }
+
+  /* Danger / expired */
+  .text-danger {
+    @apply text-red-500 font-medium;
+  }
+
+  /* No horizontal scroll on inner lists */
+  .scroll-x-snap {
+    @apply flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1;
+    scrollbar-width: none;
+  }
+  .scroll-x-snap::-webkit-scrollbar {
+    display: none;
+  }
+  .snap-item {
+    @apply snap-start shrink-0;
+  }
+}

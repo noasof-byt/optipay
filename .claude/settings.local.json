@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/lap-mg01d0173/optipay/src/app/api -name \"route.ts\" -exec wc -l {})",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\\\\|HACK\" /c/Users/lap-mg01d0173/optipay/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -r \"console\\\\.\\\\\\(log\\\\|warn\\\\|error\\\\\\)\" /c/Users/lap-mg01d0173/optipay/src --include=*.ts --include=*.tsx)",
+      "Bash(node -e \"const { Client } = require\\(''pg''\\); const c = new Client\\({connectionString:''postgresql://optipay_user:strongpassword@localhost:5432/optipay_db''}\\); c.connect\\(\\).then\\(\\(\\)=>{console.log\\(''DB OK''\\); c.end\\(\\)}\\).catch\\(e=>console.log\\(''DB ERROR:'',e.message\\)\\)\")",
+      "Bash(node -e \"const { Client } = require\\(''./node_modules/pg''\\); const c = new Client\\({connectionString:''postgresql://optipay_user:strongpassword@localhost:5432/optipay_db''}\\); c.connect\\(\\).then\\(\\(\\)=>{console.log\\(''DB OK''\\); c.end\\(\\)}\\).catch\\(e=>console.log\\(''DB ERROR:'',e.message\\)\\)\")",
+      "Bash(grep -E \"^pg$|^prisma$|^@prisma$\")",
+      "Bash(sc query:*)",
+      "Bash(net start:*)",
+      "Bash(npm install:*)",
+      "Bash(npx web-push:*)",
+      "Bash(npx prisma:*)"
+    ]
+  }
+}

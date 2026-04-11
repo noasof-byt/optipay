@@ -1,0 +1,585 @@
+// =============================================================================
+// OptiPay — Prisma Schema
+// Target DB : Microsoft SQL Server (local instance)
+//
+// SQL Server constraints vs PostgreSQL:
+//   1. No native enum type — stored as String @db.NVarChar(50) with app-layer
+//      validation. Valid values documented per field.
+//   2. NVarChar(Max) cannot carry @unique — use bounded NVarChar(N) for unique
+//      columns (N ≤ 450 to stay within SQL Server's 900-byte index key limit).
+//   3. Cascading FK cycles are forbidden — all secondary FK paths in a chain
+//      must use onDelete: NoAction, onUpdate: NoAction.
+//   4. Arrays not supported — multi-value fields stored as JSON strings.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// 1. USERS & IDENTITY
+// =============================================================================
+
+// UserRole values: "USER" | "ADMIN" | "SUPPORT"
+// FamilyMemberRole values: "OWNER" | "MEMBER"
+
+model User {
+  id                  String    @id @default(uuid())
+  email               String    @unique @db.NVarChar(320)
+  passwordHash        String    @db.NVarChar(Max)
+  displayName         String?   @db.NVarChar(120)
+  phoneNumber         String?   @db.NVarChar(20)
+  avatarUrl           String?   @db.NVarChar(500)
+  /// "USER" | "ADMIN" | "SUPPORT"
+  role                String    @default("USER") @db.NVarChar(20)
+  isLocked            Boolean   @default(false)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  emailVerified       Boolean   @default(false)
+  emailVerifyToken    String?   @unique @db.NVarChar(128)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  lastLoginAt         DateTime?
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
+
+  familyGroupOwned    FamilyGroup?
+  familyMembership    FamilyGroupMember?
+  giftCards           GiftCard[]
+  memberships         UserClubMembership[]
+  passwordResets      PasswordResetToken[]
+  pushSubscriptions   PushSubscription[]
+  notifications       Notification[]
+  searchHistory       SearchHistory[]
+  savingsRecords      SavingsRecord[]
+  supportTickets      SupportTicket[]
+  ticketReplies       TicketReply[]
+  sharedItems         FamilySharedItem[]   @relation("SharedByUser")
+  sessions            UserSession[]
+
+  @@index([email])
+  @@index([isLocked])
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique @db.NVarChar(128)
+  userAgent String?  @db.NVarChar(500)
+  ipAddress String?  @db.NVarChar(45)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("user_sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique @db.NVarChar(128)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// =============================================================================
+// 2. FAMILY GROUPS
+// =============================================================================
+
+model FamilyGroup {
+  id        String   @id @default(uuid())
+  name      String   @db.NVarChar(120)
+  ownerId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner       User                @relation(fields: [ownerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  members     FamilyGroupMember[]
+  sharedItems FamilySharedItem[]
+
+  @@map("family_groups")
+}
+
+model FamilyGroupMember {
+  id            String   @id @default(uuid())
+  familyGroupId String
+  userId        String   @unique
+  /// "OWNER" | "MEMBER"
+  role          String   @default("MEMBER") @db.NVarChar(20)
+  joinedAt      DateTime @default(now())
+
+  familyGroup   FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user          User        @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([familyGroupId])
+  @@map("family_group_members")
+}
+
+model FamilySharedItem {
+  id             String   @id @default(uuid())
+  familyGroupId  String
+  sharedByUserId String
+  /// "GIFT_CARD" | "MEMBERSHIP"
+  itemType       String   @db.NVarChar(20)
+  giftCardId     String?  @unique
+  membershipId   String?  @unique
+  createdAt      DateTime @default(now())
+
+  familyGroup    FamilyGroup         @relation(fields: [familyGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sharedBy       User                @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  giftCard       GiftCard?           @relation(fields: [giftCardId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  membership     UserClubMembership? @relation(fields: [membershipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([familyGroupId])
+  @@map("family_shared_items")
+}
+
+// =============================================================================
+// 3. CLUBS & CONSUMER NETWORKS
+// =============================================================================
+
+model Club {
+  id                     String   @id @default(uuid())
+  name                   String   @unique @db.NVarChar(120)
+  nameEn                 String?  @db.NVarChar(120)
+  /// JSON array: ["alias1","alias2"]
+  aliases                String   @default("[]") @db.NVarChar(Max)
+  description            String?  @db.NVarChar(Max)
+  logoUrl                String?  @db.NVarChar(500)
+  websiteUrl             String?  @db.NVarChar(500)
+  baseDiscountPercentage Decimal  @db.Decimal(5, 2)
+  isPaidMembership       Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  lastScrapedAt          DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  memberships       UserClubMembership[]
+  storeClubBenefits StoreClubBenefit[]
+  clubNetworkRules  ClubNetworkRule[]
+  scrapingConfigs   ClubScrapingConfig[]
+
+  @@index([isActive])
+  @@map("clubs")
+}
+
+model GiftCardNetwork {
+  id         String   @id @default(uuid())
+  name       String   @unique @db.NVarChar(120)
+  nameEn     String?  @db.NVarChar(120)
+  logoUrl    String?  @db.NVarChar(500)
+  websiteUrl String?  @db.NVarChar(500)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  giftCards        GiftCard[]
+  acceptingStores  StoreNetwork[]
+  clubNetworkRules ClubNetworkRule[]
+
+  @@map("gift_card_networks")
+}
+
+model Store {
+  id         String   @id @default(uuid())
+  name       String   @unique @db.NVarChar(120)
+  nameEn     String?  @db.NVarChar(120)
+  logoUrl    String?  @db.NVarChar(500)
+  websiteUrl String?  @db.NVarChar(500)
+  isOnline   Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  branches          StoreBranch[]
+  storeClubBenefits StoreClubBenefit[]
+  storeNetworks     StoreNetwork[]
+  savingsRecords    SavingsRecord[]
+
+  @@map("stores")
+}
+
+model StoreBranch {
+  id             String    @id @default(uuid())
+  storeId        String
+  branchName     String?   @db.NVarChar(200)
+  city           String?   @db.NVarChar(100)
+  address        String?   @db.NVarChar(500)
+  phone          String?   @db.NVarChar(20)
+  isActive       Boolean   @default(true)
+  lastVerifiedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  store          Store     @relation(fields: [storeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([storeId])
+  @@index([city])
+  @@map("store_branches")
+}
+
+model StoreNetwork {
+  storeId   String
+  networkId String
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  store     Store           @relation(fields: [storeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  network   GiftCardNetwork @relation(fields: [networkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([storeId, networkId])
+  @@map("store_networks")
+}
+
+model StoreClubBenefit {
+  id                 String   @id @default(uuid())
+  storeId            String
+  clubId             String
+  discountPercentage Decimal  @db.Decimal(5, 2)
+  maxDiscountAmount  Decimal? @db.Decimal(10, 2)
+  minPurchaseAmount  Decimal? @db.Decimal(10, 2)
+  restrictions       String?  @db.NVarChar(Max)
+  noDoubleDiscount   Boolean  @default(false)
+  validFrom          DateTime?
+  validUntil         DateTime?
+  isActive           Boolean  @default(true)
+  lastVerifiedAt     DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  store              Store    @relation(fields: [storeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  club               Club     @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([storeId, clubId])
+  @@index([storeId])
+  @@index([clubId])
+  @@map("store_club_benefits")
+}
+
+model ClubNetworkRule {
+  id              String   @id @default(uuid())
+  clubId          String
+  networkId       String
+  canCombine      Boolean  @default(true)
+  ruleDescription String?  @db.NVarChar(Max)
+  updatedAt       DateTime @updatedAt
+
+  club            Club            @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  network         GiftCardNetwork @relation(fields: [networkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([clubId, networkId])
+  @@map("club_network_rules")
+}
+
+// =============================================================================
+// 4. USER WALLET
+// =============================================================================
+
+model GiftCard {
+  id                  String    @id @default(uuid())
+  userId              String
+  networkId           String?
+  storeSpecificName   String?   @db.NVarChar(120)
+  cardNumberEncrypted String    @db.NVarChar(Max)
+  cardNumberHint      String?   @db.NVarChar(4)
+  expiryDate          DateTime
+  balance             Decimal   @db.Decimal(10, 2)
+  currency            String    @default("ILS") @db.NVarChar(3)
+  isFavorite          Boolean   @default(false)
+  isArchived          Boolean   @default(false)
+  archivedAt          DateTime?
+  sortOrder           Int       @default(0)
+  usageCount          Int       @default(0)
+  lastUsedAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  network    GiftCardNetwork? @relation(fields: [networkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sharedItem FamilySharedItem?
+  usageLogs  CardUsageLog[]
+
+  @@index([userId])
+  @@index([expiryDate])
+  @@index([isArchived])
+  @@map("gift_cards")
+}
+
+model UserClubMembership {
+  id                  String    @id @default(uuid())
+  userId              String
+  clubId              String
+  membershipNumberEnc String?   @db.NVarChar(Max)
+  isPaidMembership    Boolean   @default(false)
+  joinedAt            DateTime  @default(now())
+  expiryDate          DateTime?
+  lastUsedAt          DateTime?
+  isActive            Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  club       Club             @relation(fields: [clubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sharedItem FamilySharedItem?
+
+  @@unique([userId, clubId])
+  @@index([userId])
+  @@map("user_club_memberships")
+}
+
+model CardUsageLog {
+  id             String   @id @default(uuid())
+  giftCardId     String
+  userId         String
+  amountDeducted Decimal  @db.Decimal(10, 2)
+  balanceBefore  Decimal  @db.Decimal(10, 2)
+  balanceAfter   Decimal  @db.Decimal(10, 2)
+  productName    String?  @db.NVarChar(500)
+  storeId        String?
+  /// JSON string: serialized BuyingRoute
+  routeSnapshot  String?  @db.NVarChar(Max)
+  createdAt      DateTime @default(now())
+
+  giftCard       GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([giftCardId])
+  @@index([userId])
+  @@map("card_usage_logs")
+}
+
+// =============================================================================
+// 5. PRODUCT SYNONYMS & SEARCH
+// =============================================================================
+
+model Product {
+  id            String   @id @default(uuid())
+  canonicalName String   @db.NVarChar(500)
+  brand         String?  @db.NVarChar(120)
+  category      String?  @db.NVarChar(120)
+  imageUrl      String?  @db.NVarChar(500)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  synonyms      ProductSynonym[]
+
+  @@index([brand])
+  @@index([category])
+  @@map("products")
+}
+
+model ProductSynonym {
+  id        String   @id @default(uuid())
+  productId String
+  synonym   String   @unique @db.NVarChar(450)
+  language  String   @default("he") @db.NVarChar(5)
+  source    String?  @db.NVarChar(20)
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([productId])
+  @@map("product_synonyms")
+}
+
+model SearchHistory {
+  id                String   @id @default(uuid())
+  userId            String
+  query             String   @db.NVarChar(500)
+  resolvedProductId String?
+  resultCount       Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("search_history")
+}
+
+// =============================================================================
+// 6. SAVINGS RECORDS
+// =============================================================================
+
+model SavingsRecord {
+  id            String   @id @default(uuid())
+  userId        String
+  storeId       String?
+  productName   String   @db.NVarChar(500)
+  originalPrice Decimal  @db.Decimal(10, 2)
+  finalPrice    Decimal  @db.Decimal(10, 2)
+  savedAmount   Decimal  @db.Decimal(10, 2)
+  currency      String   @default("ILS") @db.NVarChar(3)
+  /// JSON string: serialized BuyingRoute[]
+  routeSnapshot String   @db.NVarChar(Max)
+  purchasedAt   DateTime @default(now())
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  store         Store?   @relation(fields: [storeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([purchasedAt])
+  @@map("savings_records")
+}
+
+// =============================================================================
+// 7. BACKGROUND SCRAPING ENGINE
+// =============================================================================
+
+// ScrapingJobStatus values: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED"
+
+model ClubScrapingConfig {
+  id             String   @id @default(uuid())
+  clubId         String
+  targetUrl      String   @db.NVarChar(1000)
+  /// "playwright" | "cheerio"
+  scrapeStrategy String   @default("playwright") @db.NVarChar(20)
+  /// JSON string: { selectors, xpaths, ... }
+  selectorConfig String   @db.NVarChar(Max)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  club           Club          @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  scrapingJobs   ScrapingJob[]
+
+  @@index([clubId])
+  @@map("club_scraping_configs")
+}
+
+model ScrapingJob {
+  id             String   @id @default(uuid())
+  configId       String
+  /// "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED"
+  status         String   @default("PENDING") @db.NVarChar(20)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  durationMs     Int?
+  errorMessage   String?  @db.NVarChar(Max)
+  recordsUpdated Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  config         ClubScrapingConfig @relation(fields: [configId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  results        ScrapingResult[]
+
+  @@index([configId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("scraping_jobs")
+}
+
+model ScrapingResult {
+  id         String   @id @default(uuid())
+  jobId      String
+  targetUrl  String   @db.NVarChar(1000)
+  rawHtml    String?  @db.NVarChar(Max)
+  /// JSON string: structured extraction output
+  parsedData String   @db.NVarChar(Max)
+  isApplied  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  job        ScrapingJob @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([jobId])
+  @@map("scraping_results")
+}
+
+// =============================================================================
+// 8. PUSH NOTIFICATIONS
+// =============================================================================
+
+// NotificationType values: "CARD_EXPIRING" | "MEMBERSHIP_UNUSED" | "PROMO" | "SYSTEM"
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  /// Bounded to 450 chars — SQL Server cannot index NVarChar(Max)
+  endpoint  String   @unique @db.NVarChar(450)
+  p256dhKey String   @db.NVarChar(Max)
+  authKey   String   @db.NVarChar(Max)
+  userAgent String?  @db.NVarChar(500)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  /// "CARD_EXPIRING" | "MEMBERSHIP_UNUSED" | "PROMO" | "SYSTEM"
+  type      String   @db.NVarChar(30)
+  title     String   @db.NVarChar(500)
+  body      String   @db.NVarChar(Max)
+  /// JSON string: optional payload
+  payload   String?  @db.NVarChar(Max)
+  isRead    Boolean  @default(false)
+  isSent    Boolean  @default(false)
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// =============================================================================
+// 9. SUPPORT SYSTEM
+// =============================================================================
+
+// TicketStatus values: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
+
+model SupportTicket {
+  id         String   @id @default(uuid())
+  userId     String
+  subject    String   @db.NVarChar(500)
+  /// "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
+  status     String   @default("OPEN") @db.NVarChar(20)
+  priority   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  resolvedAt DateTime?
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies    TicketReply[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model TicketReply {
+  id         String   @id @default(uuid())
+  ticketId   String
+  authorId   String
+  body       String   @db.NVarChar(Max)
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  author     User          @relation(fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ticketId])
+  @@map("ticket_replies")
+}
