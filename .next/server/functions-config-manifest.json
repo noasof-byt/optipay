@@ -1,0 +1,1 @@
+{"version":1,"functions":{"/api/cron/scrape":{"maxDuration":60},"/api/search":{"maxDuration":60}}}

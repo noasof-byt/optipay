@@ -3,44 +3,13 @@
 import { useState, useEffect } from "react";
 import { Type, Zap, Contrast, AlignLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-export const STORAGE_KEY = "accessibility";
-
-export interface A11ySettings {
-  textSize:     "normal" | "large" | "xlarge";
-  reduceMotion: boolean;
-  highContrast: boolean;
-  lineRelaxed:  boolean;
-}
-
-const DEFAULTS: A11ySettings = {
-  textSize:     "normal",
-  reduceMotion: false,
-  highContrast: false,
-  lineRelaxed:  false,
-};
-
-export function loadA11ySettings(): A11ySettings {
-  if (typeof window === "undefined") return DEFAULTS;
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-    return { ...DEFAULTS, ...saved };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-export function applyA11ySettings(s: A11ySettings) {
-  const h = document.documentElement;
-  // Text size — mutually exclusive
-  h.classList.remove("acc-text-large", "acc-text-xlarge");
-  if (s.textSize === "large")  h.classList.add("acc-text-large");
-  if (s.textSize === "xlarge") h.classList.add("acc-text-xlarge");
-  // Boolean toggles
-  h.classList.toggle("acc-high-contrast",  s.highContrast);
-  h.classList.toggle("acc-line-relaxed",   s.lineRelaxed);
-  h.classList.toggle("acc-reduced-motion", s.reduceMotion);
-}
+import {
+  STORAGE_KEY,
+  DEFAULTS,
+  type A11ySettings,
+  loadA11ySettings,
+  applyA11ySettings,
+} from "@/lib/accessibility";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
