@@ -1,10 +1,10 @@
 /**
  * Auth middleware helpers for API routes.
  *
- * Full JWT validation is implemented in Step 4 alongside the auth API routes.
- * This file provides the ADMIN guard used by admin endpoints.
+ * Token resolution order (both patterns are supported):
+ *   1. httpOnly cookie "optipay_token"  — set by /api/auth/login|register
+ *   2. Authorization: Bearer <token>    — sent by client-side fetch calls
  */
-
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { prisma } from "@/lib/prisma";
@@ -18,24 +18,38 @@ export interface AuthPayload {
 }
 
 /**
- * Validate the Bearer token from the Authorization header.
+ * Extract and validate the JWT from the request.
+ * Checks httpOnly cookie first, then Authorization header.
  * Returns the decoded payload or null if invalid/missing.
  */
 export function verifyToken(req: NextRequest): AuthPayload | null {
-  const header = req.headers.get("Authorization");
-  if (!header?.startsWith("Bearer ")) return null;
-
-  const token = header.slice(7);
-  try {
-    return jwt.verify(token, JWT_SECRET) as AuthPayload;
-  } catch {
-    return null;
+  // 1. httpOnly cookie (browser requests)
+  const cookieToken = req.cookies.get("optipay_token")?.value;
+  if (cookieToken) {
+    try {
+      return jwt.verify(cookieToken, JWT_SECRET) as AuthPayload;
+    } catch {
+      // Fall through to Bearer
+    }
   }
+
+  // 2. Authorization: Bearer (programmatic / localStorage-based clients)
+  const header = req.headers.get("Authorization");
+  if (header?.startsWith("Bearer ")) {
+    const token = header.slice(7);
+    try {
+      return jwt.verify(token, JWT_SECRET) as AuthPayload;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 /**
- * Guard: ensures the caller is authenticated.
- * Returns a 401 NextResponse if not, null if OK.
+ * Guard: ensures caller is authenticated and account is active.
+ * Returns a 401/403 NextResponse on failure, null on success.
  */
 export async function requireAuth(req: NextRequest): Promise<NextResponse | null> {
   const payload = verifyToken(req);
@@ -43,7 +57,6 @@ export async function requireAuth(req: NextRequest): Promise<NextResponse | null
     return NextResponse.json({ message: "לא מורשה" }, { status: 401 });
   }
 
-  // Check the user is not locked or deleted
   const user = await prisma.user.findUnique({
     where:  { id: payload.userId },
     select: { isLocked: true, isDeleted: true },
@@ -57,8 +70,7 @@ export async function requireAuth(req: NextRequest): Promise<NextResponse | null
 }
 
 /**
- * Guard: ensures the caller is an admin.
- * Returns a 403 NextResponse if not, null if OK.
+ * Guard: requires ADMIN role.
  */
 export async function requireAdmin(req: NextRequest): Promise<NextResponse | null> {
   const payload = verifyToken(req);
@@ -72,8 +84,8 @@ export async function requireAdmin(req: NextRequest): Promise<NextResponse | nul
 }
 
 /**
- * Extract and verify token from request, returning the userId.
- * Throws if invalid — use inside try/catch or after requireAuth().
+ * Extract userId from a verified token.
+ * Must be called after requireAuth() to guarantee validity.
  */
 export function getUserId(req: NextRequest): string {
   const payload = verifyToken(req);

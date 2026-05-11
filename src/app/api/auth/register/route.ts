@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma }          from "@/lib/prisma";
+import { signToken, hashPassword } from "@/lib/auth";
 
 const Schema = z.object({
-  displayName: z.string().min(2).max(60),
-  email:       z.string().email(),
-  password:    z.string().min(8).max(128),
+  name:     z.string().min(2, "שם חייב להכיל לפחות 2 תווים").max(60),
+  email:    z.string().email("כתובת דוא\"ל לא תקינה"),
+  password: z
+    .string()
+    .min(8, "הסיסמה חייבת להכיל לפחות 8 תווים")
+    .regex(/[A-Z]/, "הסיסמה חייבת להכיל לפחות אות גדולה אחת באנגלית")
+    .regex(/[0-9]/, "הסיסמה חייבת להכיל לפחות ספרה אחת"),
 });
 
 export async function POST(req: NextRequest) {
   let body: z.infer<typeof Schema>;
   try {
     body = Schema.parse(await req.json());
-  } catch {
-    return NextResponse.json({ message: "פרטים לא תקינים" }, { status: 400 });
+  } catch (err: any) {
+    const message = err.errors?.[0]?.message ?? "פרטים לא תקינים";
+    return NextResponse.json({ message }, { status: 400 });
   }
 
   const existing = await prisma.user.findUnique({
@@ -30,25 +34,44 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const passwordHash = await bcrypt.hash(body.password, 12);
+  const passwordHash = await hashPassword(body.password);
 
   const user = await prisma.user.create({
     data: {
       email:        body.email.toLowerCase(),
-      displayName:  body.displayName,
+      displayName:  body.name,
       passwordHash,
+      role:         "USER",
+      failedLoginAttempts: 0,
+      isLocked:     false,
     },
-    select: { id: true, email: true, role: true, displayName: true },
+    select: { id: true, email: true, role: true, displayName: true, avatarUrl: true },
   });
 
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET!,
-    { expiresIn: (process.env.JWT_EXPIRES_IN ?? "7d") as unknown as number }
-  );
+  const token = signToken({ userId: user.id, email: user.email, role: user.role });
 
-  return NextResponse.json(
-    { token, user: { id: user.id, email: user.email, displayName: user.displayName } },
+  const res = NextResponse.json(
+    {
+      token, // kept in body for backward-compat with localStorage auth
+      user: {
+        id:          user.id,
+        email:       user.email,
+        displayName: user.displayName,
+        avatarUrl:   user.avatarUrl,
+        role:        user.role,
+      },
+    },
     { status: 201 }
   );
+
+  // Set httpOnly cookie
+  res.cookies.set("optipay_token", token, {
+    httpOnly: true,
+    secure:   process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path:     "/",
+    maxAge:   60 * 60 * 24 * 7, // 7 days
+  });
+
+  return res;
 }

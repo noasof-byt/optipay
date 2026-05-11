@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { BottomNav } from "@/components/layout/BottomNav";
-import { TopBar } from "@/components/layout/TopBar";
-import { Toaster } from "@/components/ui/Toaster";
+import { AuthShell }    from "@/components/layout/AuthShell";
+import { MainContent }  from "@/components/layout/MainContent";
+import { Toaster }      from "@/components/ui/Toaster";
 
 // ── PWA / SEO Metadata ────────────────────────────────────────────────────────
 export const metadata: Metadata = {
@@ -46,9 +46,9 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,        // prevent zoom on input focus (mobile UX)
+  maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",   // allows content behind iPhone notch/home indicator
+  viewportFit: "cover",
 };
 
 // ── Root Layout ───────────────────────────────────────────────────────────────
@@ -60,33 +60,30 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
-        {/* Preconnect to Google Fonts for Rubik */}
+        {/* Preconnect to Google Fonts for Rubik + Assistant */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* iOS specific PWA meta tags */}
+        {/* iOS PWA meta tags */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="OptiPay" />
       </head>
       <body className="font-sans">
-        {/* ── App Shell ── */}
         <div className="flex flex-col min-h-dvh">
-          <TopBar />
+          {/*
+            AuthShell is a client component that:
+            - Registers the service worker on mount
+            - Renders TopBar always
+            - Renders BottomNav only when user is authenticated
+          */}
+          <AuthShell />
 
-          <main className="flex-1 pt-16">
-            {/* pt-16 = TopBar height */}
-            {children}
-          </main>
-
-          <BottomNav />
+          <MainContent>{children}</MainContent>
         </div>
 
         {/* Global toast notifications */}

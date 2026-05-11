@@ -13,8 +13,13 @@
  */
 
 export async function register() {
-  // Only run server-side (not in the Edge runtime or client bundle)
-  if (process.env.NEXT_RUNTIME === "nodejs") {
+  // Only run server-side at RUNTIME — not during `next build`.
+  // During the build phase, NEXT_PHASE is set to "phase-production-build"
+  // and we must not start the cron scheduler (no DB connections allowed).
+  if (
+    process.env.NEXT_RUNTIME === "nodejs" &&
+    process.env.NEXT_PHASE !== "phase-production-build"
+  ) {
     // Dynamic import to prevent the scheduler from being bundled
     // into client or edge chunks
     const { startScheduler } = await import("./server/cron/scheduler");

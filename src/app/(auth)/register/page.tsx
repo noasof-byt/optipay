@@ -48,8 +48,8 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName: form.displayName,
-          email: form.email,
+          name:     form.displayName,
+          email:    form.email,
           password: form.password,
         }),
       });
@@ -63,7 +63,7 @@ export default function RegisterPage() {
 
       setAuth(data.token, data.user);
       toast({ type: "success", title: "ברוכים הבאים!", description: "החשבון נוצר בהצלחה" });
-      window.location.href = "/";
+      window.location.href = "/search";
     } catch {
       toast({ type: "error", title: "שגיאה", description: "אירעה שגיאה. נסה שוב." });
     } finally {

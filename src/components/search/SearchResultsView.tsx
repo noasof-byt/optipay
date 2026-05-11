@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertCircle, RefreshCw, LogIn } from "lucide-react";
 import { BuyingRouteCard } from "./BuyingRouteCard";
 import { Button } from "@/components/ui/Button";
 import { SearchResponse, BuyingRoute } from "@/types/search";
 import { toast } from "@/hooks/useToast";
+import { getToken } from "@/hooks/useAuth";
 
 interface Props {
   query: string;
@@ -14,18 +16,34 @@ interface Props {
 type Status = "loading" | "success" | "error";
 
 export function SearchResultsView({ query }: Props) {
+  const router = useRouter();
   const [status,   setStatus]   = useState<Status>("loading");
   const [data,     setData]     = useState<SearchResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const fetchResults = useCallback(async () => {
     setStatus("loading");
     setErrorMsg("");
+    setNeedsAuth(false);
+
+    const token = getToken();
+    if (!token) {
+      setNeedsAuth(true);
+      setStatus("error");
+      return;
+    }
 
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (res.status === 401) {
+        setNeedsAuth(true);
+        setStatus("error");
+        return;
+      }
 
       if (!res.ok) {
         const err = await res.json();
@@ -66,8 +84,21 @@ export function SearchResultsView({ query }: Props) {
     );
   }
 
-  // ── Error ──────────────────────────────────────────────────────────────────
+  // ── Error / Auth required ─────────────────────────────────────────────────
   if (status === "error") {
+    if (needsAuth) {
+      const loginHref = `/login?next=${encodeURIComponent("/search?q=" + query)}`;
+      return (
+        <div className="flex flex-col items-center py-12 text-center gap-4">
+          <LogIn size={40} className="text-brand-500" />
+          <p className="text-base font-semibold text-ink">נדרשת כניסה לחשבון</p>
+          <p className="text-sm text-ink-muted">כדי לחפש מחירים יש להתחבר תחילה</p>
+          <Button onClick={() => router.push(loginHref)}>
+            כניסה לחשבון
+          </Button>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center py-12 text-center gap-4">
         <AlertCircle size={40} className="text-danger" />
@@ -143,8 +174,3 @@ export function SearchResultsView({ query }: Props) {
   );
 }
 
-/** Get the JWT from wherever the app stores it (localStorage fallback). */
-function getToken(): string {
-  if (typeof window === "undefined") return "";
-  return localStorage.getItem("optipay_token") ?? "";
-}

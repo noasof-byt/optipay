@@ -1,11 +1,22 @@
 /**
- * PATCH /api/wallet/cards/[id]  — update balance, favorite, etc.
- * DELETE /api/wallet/cards/[id] — archive (soft-delete) or restore
+ * GET    /api/wallet/cards/[id]  — card detail + recent usage logs
+ * PATCH  /api/wallet/cards/[id]  — update balance / favorite / expiryDate / isArchived
+ * DELETE /api/wallet/cards/[id]  — soft-delete (set deletedAt)
  */
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAuth, getUserId } from "@/server/auth/middleware";
 import { prisma }                 from "@/lib/prisma";
+import { decrypt }                from "@/lib/encryption";
+
+// ── Ownership helper ──────────────────────────────────────────────────────────
+async function ownsCard(userId: string, cardId: string) {
+  const card = await prisma.giftCard.findFirst({
+    where:  { id: cardId, userId, deletedAt: null },
+    select: { id: true },
+  });
+  return !!card;
+}
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(
@@ -17,36 +28,42 @@ export async function GET(
   const userId = getUserId(req);
 
   const card = await prisma.giftCard.findFirst({
-    where:   { id: params.id, userId },
+    where:   { id: params.id, userId, deletedAt: null },
     include: {
       network:  { select: { name: true, logoUrl: true } },
       usageLogs: {
         orderBy: { createdAt: "desc" },
         take:    20,
-        select:  { id: true, amountDeducted: true, balanceBefore: true, balanceAfter: true, productName: true, createdAt: true },
+        select:  {
+          id: true, amountDeducted: true, balanceBefore: true,
+          balanceAfter: true, productName: true, createdAt: true,
+        },
       },
     },
   });
 
   if (!card) return NextResponse.json({ message: "כרטיס לא נמצא" }, { status: 404 });
-  return NextResponse.json({ card, type: "gift_card" });
-}
 
-const PatchSchema = z.object({
-  balance:    z.number().min(0).optional(),
-  isFavorite: z.boolean().optional(),
-  isArchived: z.boolean().optional(),          // restore from archive
-}).refine((d) => Object.keys(d).length > 0, { message: "אין שדות לעדכון" });
-
-async function ownsCard(userId: string, cardId: string) {
-  const card = await prisma.giftCard.findFirst({
-    where:  { id: cardId, userId },
-    select: { id: true },
+  return NextResponse.json({
+    card: {
+      ...card,
+      cardNumber: card.cardNumberEncrypted ? decrypt(card.cardNumberEncrypted) : null,
+      cardNumberEncrypted: undefined,
+    },
+    type: "gift_card",
   });
-  return !!card;
 }
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
+const PatchSchema = z.object({
+  balance:    z.number().min(0).optional(),
+  isFavorite: z.boolean().optional(),
+  expiryDate: z.string().refine((d) => new Date(d) > new Date(), {
+    message: "תאריך התפוגה חייב להיות בעתיד",
+  }).optional(),
+  isArchived: z.boolean().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: "אין שדות לעדכון" });
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -69,23 +86,31 @@ export async function PATCH(
     );
   }
 
+  // Auto-archive when balance reaches 0
+  const newBalance     = body.balance;
+  const autoArchived   = newBalance === 0;
+  const shouldArchive  = autoArchived || body.isArchived === true;
+  const shouldRestore  = body.isArchived === false;
+
   const updated = await prisma.giftCard.update({
     where: { id: params.id },
-    data:  {
-      ...(body.balance    !== undefined && { balance:    body.balance }),
+    data: {
+      ...(newBalance    !== undefined && { balance: newBalance }),
       ...(body.isFavorite !== undefined && { isFavorite: body.isFavorite }),
-      ...(body.isArchived !== undefined && {
-        isArchived: body.isArchived,
-        archivedAt: body.isArchived ? new Date() : null,
-      }),
+      ...(body.expiryDate !== undefined && { expiryDate: new Date(body.expiryDate) }),
+      ...(shouldArchive && { isArchived: true,  archivedAt: new Date() }),
+      ...(shouldRestore && { isArchived: false, archivedAt: null }),
     },
-    select: { id: true, balance: true, isFavorite: true, isArchived: true },
+    select: { id: true, balance: true, isFavorite: true, isArchived: true, expiryDate: true },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    ...updated,
+    ...(autoArchived && { autoArchived: true }),
+  });
 }
 
-// ── DELETE (archive) ──────────────────────────────────────────────────────────
+// ── DELETE (soft-delete) ──────────────────────────────────────────────────────
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -100,8 +125,8 @@ export async function DELETE(
 
   await prisma.giftCard.update({
     where: { id: params.id },
-    data:  { isArchived: true, archivedAt: new Date() },
+    data:  { deletedAt: new Date() },
   });
 
-  return NextResponse.json({ message: "הכרטיס הועבר לארכיון" });
+  return NextResponse.json({ message: "הכרטיס נמחק" });
 }

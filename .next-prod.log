@@ -1,0 +1,85 @@
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+
+ ✓ Starting...
+ ✓ Ready in 1650ms
+{"ts":"2026-05-05T18:26:57.265Z","level":"info","msg":"Search started","query":"אייפון 15","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T18:26:57.701Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T18:26:57.701Z","level":"info","msg":"NLP complete","canonicalQuery":"אייפון 15"}
+{"ts":"2026-05-05T18:26:57.701Z","level":"info","msg":"ZAP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T18:26:57.706Z","level":"info","msg":"KSP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T18:26:57.707Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%90%D7%99%D7%99%D7%A4%D7%95%D7%9F%2015"}
+{"ts":"2026-05-05T18:26:58.893Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il אייפון 15","results":6}
+{"ts":"2026-05-05T18:26:58.893Z","level":"info","msg":"KSP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T18:26:58.929Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il אייפון 15","results":6}
+{"ts":"2026-05-05T18:26:58.929Z","level":"info","msg":"ZAP SERP complete","query":"אייפון 15","found":1}
+{"ts":"2026-05-05T18:27:02.700Z","level":"info","msg":"Bug scrape complete","query":"אייפון 15","found":30}
+{"ts":"2026-05-05T18:27:02.701Z","level":"info","msg":"Live price fetch complete","raw":6,"unique":2,"valid":2,"errors":0}
+{"ts":"2026-05-05T18:27:02.774Z","level":"info","msg":"StoreResolver: auto-creating store","scraperName":"ZAP"}
+{"ts":"2026-05-05T18:27:02.784Z","level":"info","msg":"StoreResolver: auto-creating store","scraperName":"Bug"}
+{"ts":"2026-05-05T18:27:02.879Z","level":"info","msg":"Search complete","query":"אייפון 15","routes":2,"ms":5614}
+{"ts":"2026-05-05T19:06:16.273Z","level":"info","msg":"Search started","query":"אייפון 15","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T19:06:16.747Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T19:06:16.747Z","level":"info","msg":"NLP complete","canonicalQuery":"אייפון 15"}
+{"ts":"2026-05-05T19:06:16.748Z","level":"info","msg":"ZAP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:06:16.750Z","level":"info","msg":"KSP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:06:16.752Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%90%D7%99%D7%99%D7%A4%D7%95%D7%9F%2015"}
+{"ts":"2026-05-05T19:06:17.925Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il אייפון 15","results":6}
+{"ts":"2026-05-05T19:06:17.925Z","level":"info","msg":"ZAP SERP complete","query":"אייפון 15","found":1}
+{"ts":"2026-05-05T19:06:17.952Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il אייפון 15","results":6}
+{"ts":"2026-05-05T19:06:17.953Z","level":"info","msg":"KSP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T19:06:20.866Z","level":"info","msg":"Bug scrape complete","query":"אייפון 15","found":30}
+{"ts":"2026-05-05T19:06:20.866Z","level":"info","msg":"Live price fetch complete","raw":6,"unique":2,"valid":2,"errors":0}
+{"ts":"2026-05-05T19:06:20.913Z","level":"info","msg":"Search complete","query":"אייפון 15","routes":2,"ms":4640}
+{"ts":"2026-05-05T19:06:37.138Z","level":"info","msg":"Search started","query":"אייפון 17","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T19:06:37.562Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T19:06:37.562Z","level":"info","msg":"NLP complete","canonicalQuery":"אייפון 17"}
+{"ts":"2026-05-05T19:06:37.562Z","level":"info","msg":"ZAP SERP search","query":"אייפון 17"}
+{"ts":"2026-05-05T19:06:37.563Z","level":"info","msg":"KSP SERP search","query":"אייפון 17"}
+{"ts":"2026-05-05T19:06:37.563Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%90%D7%99%D7%99%D7%A4%D7%95%D7%9F%2017"}
+{"ts":"2026-05-05T19:06:37.959Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il אייפון 17","results":0}
+{"ts":"2026-05-05T19:06:37.959Z","level":"info","msg":"KSP SERP complete","query":"אייפון 17","found":0}
+{"ts":"2026-05-05T19:06:37.977Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il אייפון 17","results":0}
+{"ts":"2026-05-05T19:06:37.977Z","level":"info","msg":"ZAP SERP complete","query":"אייפון 17","found":0}
+{"ts":"2026-05-05T19:06:39.470Z","level":"info","msg":"Bug scrape complete","query":"אייפון 17","found":30}
+{"ts":"2026-05-05T19:06:39.470Z","level":"info","msg":"Live price fetch complete","raw":5,"unique":1,"valid":1,"errors":0}
+{"ts":"2026-05-05T19:06:39.612Z","level":"info","msg":"Search complete","query":"אייפון 17","routes":1,"ms":2474}
+{"ts":"2026-05-05T19:06:48.760Z","level":"info","msg":"Search started","query":"מכונת כביסה","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T19:06:49.181Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T19:06:49.182Z","level":"info","msg":"NLP complete","canonicalQuery":"מכונת כביסה"}
+{"ts":"2026-05-05T19:06:49.182Z","level":"info","msg":"ZAP SERP search","query":"מכונת כביסה"}
+{"ts":"2026-05-05T19:06:49.183Z","level":"info","msg":"KSP SERP search","query":"מכונת כביסה"}
+{"ts":"2026-05-05T19:06:49.184Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%9E%D7%9B%D7%95%D7%A0%D7%AA%20%D7%9B%D7%91%D7%99%D7%A1%D7%94"}
+{"ts":"2026-05-05T19:06:49.529Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il מכונת כביסה","results":0}
+{"ts":"2026-05-05T19:06:49.529Z","level":"info","msg":"KSP SERP complete","query":"מכונת כביסה","found":0}
+{"ts":"2026-05-05T19:06:49.532Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il מכונת כביסה","results":0}
+{"ts":"2026-05-05T19:06:49.532Z","level":"info","msg":"ZAP SERP complete","query":"מכונת כביסה","found":0}
+{"ts":"2026-05-05T19:06:50.688Z","level":"info","msg":"Bug scrape complete","query":"מכונת כביסה","found":30}
+{"ts":"2026-05-05T19:06:50.688Z","level":"info","msg":"Live price fetch complete","raw":5,"unique":1,"valid":1,"errors":0}
+{"ts":"2026-05-05T19:06:50.717Z","level":"info","msg":"Search complete","query":"מכונת כביסה","routes":1,"ms":1957}
+{"ts":"2026-05-05T19:10:38.883Z","level":"info","msg":"Search started","query":"אייפון 15","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T19:10:39.422Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T19:10:39.422Z","level":"info","msg":"NLP complete","canonicalQuery":"אייפון 15"}
+{"ts":"2026-05-05T19:10:39.422Z","level":"info","msg":"ZAP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:10:39.423Z","level":"info","msg":"KSP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:10:39.423Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%90%D7%99%D7%99%D7%A4%D7%95%D7%9F%2015"}
+{"ts":"2026-05-05T19:10:39.913Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il אייפון 15","results":0}
+{"ts":"2026-05-05T19:10:39.913Z","level":"info","msg":"KSP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T19:10:39.926Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il אייפון 15","results":0}
+{"ts":"2026-05-05T19:10:39.928Z","level":"info","msg":"ZAP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T19:10:41.329Z","level":"info","msg":"Bug scrape complete","query":"אייפון 15","found":30}
+{"ts":"2026-05-05T19:10:41.329Z","level":"info","msg":"Live price fetch complete","raw":5,"unique":1,"valid":1,"errors":0}
+{"ts":"2026-05-05T19:10:41.367Z","level":"info","msg":"Search complete","query":"אייפון 15","routes":1,"ms":2484}
+{"ts":"2026-05-05T19:25:50.241Z","level":"info","msg":"Search started","query":"אייפון 15","userId":"f1f7dd98-14d0-4281-b465-1ef64bcff285"}
+{"ts":"2026-05-05T19:25:50.735Z","level":"warn","msg":"Gemini NLP failed — using local fallback","err":"Error: [GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent: [403 Forbidden] Your API key was reported as leaked. Please use another API key."}
+{"ts":"2026-05-05T19:25:50.735Z","level":"info","msg":"NLP complete","canonicalQuery":"אייפון 15"}
+{"ts":"2026-05-05T19:25:50.735Z","level":"info","msg":"ZAP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:25:50.743Z","level":"info","msg":"KSP SERP search","query":"אייפון 15"}
+{"ts":"2026-05-05T19:25:50.745Z","level":"info","msg":"Bug HTML request","url":"https://www.bug.co.il/search?q=%D7%90%D7%99%D7%99%D7%A4%D7%95%D7%9F%2015"}
+{"ts":"2026-05-05T19:25:51.300Z","level":"info","msg":"DDG SERP fetched","query":"site:ksp.co.il אייפון 15","results":0}
+{"ts":"2026-05-05T19:25:51.301Z","level":"info","msg":"KSP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T19:25:51.324Z","level":"info","msg":"DDG SERP fetched","query":"site:zap.co.il אייפון 15","results":0}
+{"ts":"2026-05-05T19:25:51.324Z","level":"info","msg":"ZAP SERP complete","query":"אייפון 15","found":0}
+{"ts":"2026-05-05T19:25:53.034Z","level":"info","msg":"Bug scrape complete","query":"אייפון 15","found":30}
+{"ts":"2026-05-05T19:25:53.034Z","level":"info","msg":"Live price fetch complete","raw":5,"unique":1,"valid":1,"errors":0}
+{"ts":"2026-05-05T19:25:53.129Z","level":"info","msg":"Search complete","query":"אייפון 15","routes":1,"ms":2888}

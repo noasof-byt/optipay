@@ -48,7 +48,11 @@ export function buildRoutesForStore(
   storeId?:    string
 ): BuyingRoute[] {
   const routes: BuyingRoute[] = [];
-  const basePrice = livePrice.price;
+  const basePrice  = livePrice.price;
+  const storeName  = livePrice.storeName;
+
+  console.log(`[MATCHMAKER] buildRoutesForStore: ${storeName} ₪${basePrice} (storeId=${storeId ?? "NOT IN DB"})`);
+  console.log(`[MATCHMAKER] storeCtx: ${storeCtx.storeNetworks.filter(n => n.storeId === storeId).length} networks, ${storeCtx.storeClubBenefits.filter(b => b.storeId === storeId).length} club benefits for this store`);
 
   // ── 1. Find applicable club discounts ─────────────────────────────────────
   const applicableClubs: ApplicableClub[] = [];
@@ -58,9 +62,20 @@ export function buildRoutesForStore(
       const benefit = storeCtx.storeClubBenefits.find(
         (b) => b.storeId === storeId && b.clubId === membership.clubId
       );
-      if (!benefit) continue;
+      if (!benefit) {
+        console.log(`[MATCHMAKER] Club ${membership.clubName} no match for store ${storeName}`);
+        continue;
+      }
       // Respect minimum purchase
-      if (benefit.minPurchase && basePrice < benefit.minPurchase) continue;
+      if (benefit.minPurchase && basePrice < benefit.minPurchase) {
+        console.log(`[MATCHMAKER] Club ${membership.clubName} skipped for ${storeName} — price ₪${basePrice} below minPurchase ₪${benefit.minPurchase}`);
+        continue;
+      }
+      const discount = Math.min(
+        basePrice * (benefit.discountPct / 100),
+        benefit.maxAmount ?? Infinity
+      );
+      console.log(`[MATCHMAKER] Club ${membership.clubName} matches store ${storeName} → ${benefit.discountPct}% discount ₪${Math.round(discount * 100) / 100}`);
       applicableClubs.push({ membership, benefit });
     }
   }
@@ -70,12 +85,20 @@ export function buildRoutesForStore(
     .filter((sn) => sn.storeId === storeId)
     .map((sn) => sn.networkId);
 
+  console.log(`[MATCHMAKER] ${storeName} accepts networkIds: [${acceptedNetworkIds.join(", ")}]`);
+
   const applicableCards: ApplicableCard[] = wallet.giftCards
     .filter((card) => card.balance > 0)
-    .map((card) => ({
-      card,
-      acceptedBy: card.networkId ? acceptedNetworkIds.includes(card.networkId) : false,
-    }))
+    .map((card) => {
+      const acceptedBy = card.networkId ? acceptedNetworkIds.includes(card.networkId) : false;
+      if (acceptedBy) {
+        const discount = Math.min(card.balance, basePrice);
+        console.log(`[MATCHMAKER] Card ${card.networkName ?? card.networkId} matches store ${storeName} → discount ₪${discount}`);
+      } else {
+        console.log(`[MATCHMAKER] Card ${card.networkName ?? card.networkId} (networkId=${card.networkId}) no match for store ${storeName}`);
+      }
+      return { card, acceptedBy };
+    })
     .filter((ac) => ac.acceptedBy);
 
   // ── 3. Route: no benefits (baseline) ─────────────────────────────────────
@@ -160,7 +183,9 @@ export function buildRoutesForStore(
   }
 
   // ── 7. Deduplicate identical final prices, keep best discounts ────────────
-  return deduplicateRoutes(routes);
+  const deduplicated = deduplicateRoutes(routes);
+  console.log(`[MATCHMAKER] Final: ${deduplicated.length} total routes generated for ${storeName}`);
+  return deduplicated;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -14,10 +14,21 @@ export function MembershipItemCard({ membership, onRemove }: Props) {
   const unused = !membership.lastUsedAt ||
     new Date(membership.lastUsedAt) < sixMonthsAgo;
 
+  // Expiry warning: show when ≤30 days left (and not already expired)
+  const expiryWarningDays = membership.expiryDate
+    ? (() => {
+        const daysLeft = Math.ceil(
+          (new Date(membership.expiryDate!).getTime() - Date.now()) / 86_400_000
+        );
+        return daysLeft > 0 && daysLeft <= 30 ? daysLeft : null;
+      })()
+    : null;
+
   return (
     <div className={cn(
       "card flex items-start justify-between gap-3 p-4",
-      unused && membership.isPaidMembership && "ring-1 ring-warning"
+      unused && membership.isPaidMembership && "ring-1 ring-warning",
+      expiryWarningDays !== null && "ring-1 ring-danger"
     )}>
       <div className="flex items-center gap-3 min-w-0 flex-1">
         <span className="w-10 h-10 rounded-2xl bg-accent-100 flex items-center justify-center shrink-0">
@@ -52,6 +63,22 @@ export function MembershipItemCard({ membership, onRemove }: Props) {
                 לא בשימוש 6+ חודשים — האם עדיין כדאי?
               </p>
             </div>
+          )}
+
+          {expiryWarningDays !== null && (
+            <div className="flex items-center gap-1 mt-1.5">
+              <AlertTriangle size={11} className="text-danger shrink-0" />
+              <p className="text-[0.6rem] text-danger font-semibold">
+                החברות פוקעת בעוד {expiryWarningDays} ימים — {membership.isPaidMembership ? "חדש או בטל" : "בדוק חידוש"}
+              </p>
+            </div>
+          )}
+
+          {membership.expiryDate && !expiryWarningDays && (
+            <p className="text-[0.65rem] text-ink-faint mt-0.5">
+              תוקף:{" "}
+              {formatDateHe(membership.expiryDate, { day: "2-digit", month: "short", year: "numeric" })}
+            </p>
           )}
         </div>
       </div>

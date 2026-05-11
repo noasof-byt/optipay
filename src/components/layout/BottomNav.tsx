@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, Wallet, BarChart2, User } from "lucide-react";
+import { Search, Wallet, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/",          label: "בית",    icon: Home      },
-  { href: "/search",    label: "חיפוש",  icon: Search    },
-  { href: "/wallet",    label: "ארנק",   icon: Wallet    },
-  { href: "/dashboard", label: "חיסכון", icon: BarChart2 },
-  { href: "/profile",   label: "פרופיל", icon: User      },
+  { href: "/search",  label: "חיפוש",  icon: Search },
+  { href: "/wallet",  label: "ארנק",   icon: Wallet },
+  { href: "/profile", label: "פרופיל", icon: User   },
 ] as const;
 
 export function BottomNav() {

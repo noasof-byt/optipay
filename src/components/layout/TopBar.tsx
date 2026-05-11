@@ -18,10 +18,15 @@ const PAGE_TITLES: Record<string, string> = {
   "/support":              "תמיכה",
 };
 
+const AUTH_ROUTES = new Set(["/login", "/register", "/reset-password"]);
+
 export function TopBar() {
   const pathname = usePathname();
   const router   = useRouter();
   const isHome   = pathname === "/";
+
+  // Don't render on auth pages — they have their own full-page layout
+  if (AUTH_ROUTES.has(pathname)) return null;
   const title    = PAGE_TITLES[pathname]
     ?? (pathname.startsWith("/wallet/") ? "פרטי כרטיס" : "");
 

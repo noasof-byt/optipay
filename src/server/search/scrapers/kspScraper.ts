@@ -1,180 +1,141 @@
+import "server-only";
 /**
- * KSP (ksp.co.il) Real-Time Price Scraper
+ * KSP (ksp.co.il) Price Scraper
  *
- * Anti-bot bypass strategy:
- *   KSP's website sits behind Cloudflare. Direct API calls to their mobile
- *   API (m.ksp.co.il) fail because the subdomain is unreachable externally,
- *   and hitting the API endpoints on the main domain returns 404 without
- *   session cookies.
+ * Tries three endpoints in order:
+ *   1. Mobile JSON API  /app/api/search
+ *   2. HTML page        /web/cat/search  → __NEXT_DATA__ or __INITIAL_STATE__
+ *   3. Format param     /web/cat/search?format=json
  *
- *   Solution — Playwright route interception:
- *   1. Load ksp.co.il/web/cat/?q=QUERY in the stealth browser (passes CF)
- *   2. Register a route handler BEFORE navigation that intercepts the XHR
- *      call KSP's React SPA makes to /m_action/api/item/search
- *   3. The browser context already has valid CF cookies from the page load,
- *      so the intercepted API call succeeds and returns clean JSON
- *   4. We resolve a Promise with the JSON payload and close the page
- *
- *   Fallback: If the XHR never fires (page structure change, CF block),
- *   scrape product cards from the rendered DOM.
+ * NO Playwright — fetch + cheerio only (Vercel serverless constraint).
  */
 
-import type { Page }   from "playwright";
-import { LivePrice }   from "@/types/search";
-import { logger }      from "@/lib/logger";
-import {
-  acquirePage,
-  releasePage,
-  navigateTo,
-  scrollToBottom,
-} from "../../scraper/engine/playwrightEngine";
+import * as cheerio from "cheerio";
+import { LivePrice }  from "@/types/search";
+import { logger }     from "@/lib/logger";
 
 const KSP_BASE = "https://ksp.co.il";
 
-// KSP's React SPA navigates to this URL for category/search results
-const KSP_SEARCH_PAGE = (q: string) =>
-  `${KSP_BASE}/web/cat/?q=${encodeURIComponent(q)}`;
-
-// The XHR endpoint the SPA calls — intercepted in the browser context
-// (the browser has cookies; direct Node.js fetch to this URL returns 404)
-const KSP_API_PATTERN = "**/m_action/api/item/search**";
-
-// DOM selectors used in the fallback scrape
-const SEL = {
-  productCard:  ".ProductCard, .product-item, [class*='ProductCard'], [class*='product-card']",
-  productName:  "h2, h3, .ProductName, [class*='product-name'], [class*='ProductName']",
-  productPrice: "[class*='price'], [class*='Price'], .ProductPrice, .PriceNumber",
-  productLink:  "a[href*='/web/item/']",
+const MOBILE_HEADERS: Record<string, string> = {
+  "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
+  "Accept":     "application/json",
+  "Referer":    "https://ksp.co.il/",
 };
 
-// ── Types returned by KSP's internal API ──────────────────────────────────────
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "he-IL,he;q=0.9",
+  "Referer":         "https://ksp.co.il/",
+};
 
-interface KspApiRow {
-  uin:      string;   // item ID → /web/item/{uin}
-  sn:       string;   // product name
-  price:    string;   // "3499"
-  img?:     string;
-  inStock?: number;   // 1 = in stock
-  dc?:      string;
+function extractProducts(data: unknown): LivePrice[] {
+  const products =
+    (data as Record<string, unknown>)?.products ??
+    (data as Record<string, unknown>)?.items ??
+    (data as Record<string, unknown>)?.results;
+  if (!Array.isArray(products) || !products.length) return [];
+
+  return (products as Record<string, unknown>[])
+    .slice(0, 5)
+    .map((p) => ({
+      storeName: "KSP",
+      price:     Number(p.price ?? p.Price ?? p.salePrice ?? 0),
+      currency:  "ILS",
+      url:       String(p.url ?? p.link ?? p.webUrl ?? `${KSP_BASE}/`),
+      inStock:   true,
+      source:    "ksp" as const,
+      fetchedAt: new Date(),
+    }))
+    .filter((r) => r.price >= 10 && r.price <= 1_000_000);
 }
-
-interface KspApiResponse {
-  data?: { total?: number; rows?: KspApiRow[] };
-  rows?: KspApiRow[];
-  total?: number;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export async function scrapeKsp(query: string): Promise<LivePrice[]> {
-  const page = await acquirePage();
+  const encodedQuery = encodeURIComponent(query);
 
+  // ── Endpoint 1: Mobile JSON API ──────────────────────────────────────────
+  const ep1 = `${KSP_BASE}/app/api/search?q=${encodedQuery}&from=0&size=5`;
+  logger.info("[KSP] Trying endpoint 1 (mobile API)", { url: ep1 });
   try {
-    // ── Set up XHR interception before navigation ─────────────────────────
-    let resolveApi!: (data: KspApiResponse) => void;
-    const apiPromise = new Promise<KspApiResponse>((res) => { resolveApi = res; });
+    const res = await fetch(ep1, { headers: MOBILE_HEADERS, signal: AbortSignal.timeout(10_000) });
+    logger.info(`[KSP] Status: ${res.status}`);
+    if (res.ok) {
+      const text = await res.text();
+      logger.info(`[KSP] Response preview: ${text.slice(0, 300)}`);
+      const results = extractProducts(JSON.parse(text));
+      if (results.length) return results;
+    }
+  } catch (e) {
+    logger.warn("[KSP] Endpoint 1 failed", { err: String(e) });
+  }
 
-    await page.route(KSP_API_PATTERN, async (route) => {
-      try {
-        const response = await route.fetch();
-        const json: KspApiResponse = await response.json().catch(() => ({}));
-        resolveApi(json);
-        await route.fulfill({ response });
-      } catch {
-        await route.continue();
+  // ── Endpoint 2: HTML → __NEXT_DATA__ / __INITIAL_STATE__ ────────────────
+  const ep2 = `${KSP_BASE}/web/cat/search?q=${encodedQuery}`;
+  logger.info("[KSP] Trying endpoint 2 (HTML scrape)", { url: ep2 });
+  try {
+    const res = await fetch(ep2, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(15_000) });
+    logger.info(`[KSP] Status: ${res.status}`);
+    if (res.ok) {
+      const html = await res.text();
+      logger.info(`[KSP] Response preview: ${html.slice(0, 300)}`);
+      const $ = cheerio.load(html);
+
+      // Try <script id="__NEXT_DATA__">
+      const nextDataRaw = $("script#__NEXT_DATA__").html();
+      if (nextDataRaw) {
+        try {
+          const nd = JSON.parse(nextDataRaw);
+          const products =
+            nd?.props?.pageProps?.products ??
+            nd?.props?.pageProps?.items ??
+            nd?.props?.pageProps?.searchResults?.products ??
+            nd?.props?.pageProps?.data?.products ??
+            nd?.props?.pageProps?.initialData?.items;
+          const results = extractProducts({ products });
+          if (results.length) return results;
+        } catch (e) {
+          logger.warn("[KSP] Failed to parse __NEXT_DATA__", { err: String(e) });
+        }
       }
-    });
 
-    // ── Navigate (passes Cloudflare because of stealth browser) ───────────
-    logger.info("KSP: navigating to search page", { query });
-    await navigateTo(page, KSP_SEARCH_PAGE(query));
-
-    // Wait up to 12 s for the XHR to fire, then fall back to DOM scrape
-    const apiData = await Promise.race([
-      apiPromise,
-      new Promise<null>((res) => setTimeout(() => res(null), 12_000)),
-    ]);
-
-    if (apiData) {
-      const rows: KspApiRow[] = apiData?.data?.rows ?? apiData?.rows ?? [];
-      if (rows.length) {
-        logger.info("KSP: XHR intercepted", { query, rows: rows.length });
-        return parseApiRows(rows);
+      // Try window.__INITIAL_STATE__ in any inline script
+      for (const el of $("script:not([src])").toArray()) {
+        const content = $(el).html() ?? "";
+        if (!content.includes("__INITIAL_STATE__")) continue;
+        const m = content.match(/__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});?\s*(?:window|var|\/\/)/);
+        if (!m) continue;
+        try {
+          const state = JSON.parse(m[1]);
+          const products =
+            state?.catalog?.products ?? state?.products ?? state?.items ?? state?.data?.products;
+          const results = extractProducts({ products });
+          if (results.length) return results;
+        } catch { /* skip */ }
       }
     }
-
-    // ── Fallback: scrape rendered DOM ─────────────────────────────────────
-    logger.info("KSP: XHR not captured — falling back to DOM scrape", { query });
-    await scrollToBottom(page);
-    return await scrapeDom(page);
-
-  } catch (err) {
-    logger.warn("KSP scraper failed", { err: String(err) });
-    return [];
-  } finally {
-    await releasePage(page);
-  }
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseApiRows(rows: KspApiRow[]): LivePrice[] {
-  return rows
-    .slice(0, 5)
-    .map((row): LivePrice | null => {
-      const price = parseKspPrice(row.price);
-      if (!price) return null;
-
-      return {
-        storeName: "KSP",
-        price,
-        currency:  "ILS",
-        url:       row.uin ? `${KSP_BASE}/web/item/${row.uin}` : KSP_BASE,
-        inStock:   row.inStock !== 0,
-        source:    "ksp",
-        fetchedAt: new Date(),
-      };
-    })
-    .filter((r): r is LivePrice => r !== null);
-}
-
-async function scrapeDom(page: Page): Promise<LivePrice[]> {
-  const results: LivePrice[] = [];
-  const cards = await page.$$(SEL.productCard);
-
-  for (const card of cards.slice(0, 5)) {
-    try {
-      const nameEl  = await card.$(SEL.productName);
-      const priceEl = await card.$(SEL.productPrice);
-      const linkEl  = await card.$(SEL.productLink);
-
-      if (!nameEl || !priceEl) continue;
-
-      const price = parseKspPrice(await priceEl.innerText());
-      if (!price) continue;
-
-      const href = linkEl ? (await linkEl.getAttribute("href") ?? "") : "";
-      const url  = href.startsWith("http") ? href : `${KSP_BASE}${href}`;
-
-      results.push({
-        storeName: "KSP",
-        price,
-        currency:  "ILS",
-        url:       url || KSP_BASE,
-        inStock:   true,
-        source:    "ksp",
-        fetchedAt: new Date(),
-      });
-    } catch { /* skip bad row */ }
+  } catch (e) {
+    logger.warn("[KSP] Endpoint 2 failed", { err: String(e) });
   }
 
-  logger.info("KSP DOM scrape complete", { found: results.length });
-  return results;
-}
+  // ── Endpoint 3: format=json param ───────────────────────────────────────
+  const ep3 = `${KSP_BASE}/web/cat/search?q=${encodedQuery}&format=json`;
+  logger.info("[KSP] Trying endpoint 3 (format=json)", { url: ep3 });
+  try {
+    const res = await fetch(ep3, {
+      headers: { ...BROWSER_HEADERS, "Accept": "application/json" },
+      signal:  AbortSignal.timeout(10_000),
+    });
+    logger.info(`[KSP] Status: ${res.status}`);
+    if (res.ok) {
+      const text = await res.text();
+      logger.info(`[KSP] Response preview: ${text.slice(0, 300)}`);
+      const results = extractProducts(JSON.parse(text));
+      if (results.length) return results;
+    }
+  } catch (e) {
+    logger.warn("[KSP] Endpoint 3 failed", { err: String(e) });
+  }
 
-function parseKspPrice(raw: string | number | undefined): number | null {
-  if (raw === undefined || raw === null) return null;
-  const cleaned = String(raw).replace(/[^\d.]/g, "");
-  const num = parseFloat(cleaned);
-  return isNaN(num) || num <= 0 ? null : num;
+  logger.warn("[KSP] All endpoints failed");
+  return [];
 }

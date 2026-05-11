@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter }   from "next/navigation";
 import {
   User, Bell, Shield, Trash2, ChevronLeft,
-  Accessibility, LogOut, HelpCircle,
+  Accessibility, LogOut, HelpCircle, Users,
 } from "lucide-react";
 import { Button }   from "@/components/ui/Button";
 import { useAuth }  from "@/hooks/useAuth";
@@ -98,8 +98,9 @@ export default function ProfilePage() {
 
       {/* Menu sections */}
       <MenuSection title="חשבון">
-        <MenuItem icon={User}         label="פרטים אישיים"    href="/profile/edit" />
-        <MenuItem icon={Shield}       label="שינוי סיסמה"     href="/profile/password" />
+        <MenuItem icon={User}   label="פרטים אישיים"  href="/profile/edit" />
+        <MenuItem icon={Shield} label="שינוי סיסמה"   href="/profile/password" />
+        <MenuItem icon={Users}  label="ארנק משפחתי"   href="/profile/family" />
       </MenuSection>
 
       <MenuSection title="הגדרות">

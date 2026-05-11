@@ -49,7 +49,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
           {/* End icon (in RTL this appears on the left side visually) */}
           {endIcon && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint pointer-events-none">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">
               {endIcon}
             </span>
           )}

@@ -11,7 +11,7 @@ import { getToken } from "@/hooks/useAuth";
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (getToken()) {
-      window.location.replace("/");
+      window.location.replace("/search");
     }
   }, []);
 

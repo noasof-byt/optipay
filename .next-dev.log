@@ -1,0 +1,87 @@
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+> [PWA] PWA support is disabled
+> [PWA] PWA support is disabled
+ ✓ Ready in 4.4s
+ ○ Compiling / ...
+ ✓ Compiled / in 3s (640 modules)
+ GET / 200 in 2734ms
+ GET / 200 in 3389ms
+ ✓ Compiled in 392ms (327 modules)
+ GET / 200 in 153ms
+ ○ Compiling /search ...
+ ✓ Compiled /api/search/history in 4.7s (786 modules)
+ GET /api/dashboard 401 in 4217ms
+ GET /api/search/history 401 in 4241ms
+ GET /api/wallet/cards?archived=false 401 in 4262ms
+ GET /api/wallet/memberships 401 in 4270ms
+ GET /search?q=test 200 in 5038ms
+ GET /api/dashboard 401 in 100ms
+ GET /api/wallet/cards?archived=false 401 in 51ms
+ GET /api/search/history 401 in 55ms
+ GET /api/wallet/memberships 401 in 51ms
+ ○ Compiling /api/search ...
+ ✓ Compiled /api/search in 1180ms (730 modules)
+ GET /api/search?q=test 401 in 1363ms
+ GET / 200 in 209ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1072ms (1060 modules)
+ GET /_next/static/css/app/layout.css?v=1777901904705 404 in 1414ms
+ GET /_next/static/chunks/main-app.js?v=1777901904705 404 in 1428ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 1426ms
+ GET /_next/static/chunks/app/page.js 404 in 1426ms
+ GET /_next/static/chunks/app/layout.js 404 in 1425ms
+ GET / 200 in 100ms
+ GET /_next/static/css/app/layout.css?v=1777901908744 404 in 113ms
+ GET /_next/static/chunks/main-app.js?v=1777901908744 404 in 346ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 335ms
+ GET /_next/static/chunks/app/page.js 404 in 335ms
+ GET /_next/static/chunks/app/layout.js 404 in 329ms
+ GET / 200 in 87ms
+ GET /_next/static/css/app/layout.css?v=1777901911067 404 in 74ms
+ GET /_next/static/chunks/main-app.js?v=1777901911067 404 in 93ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 93ms
+ GET /_next/static/chunks/app/page.js 404 in 91ms
+ GET /_next/static/chunks/app/layout.js 404 in 89ms
+ GET / 200 in 74ms
+ GET /_next/static/css/app/layout.css?v=1777901919464 404 in 51ms
+ GET /_next/static/chunks/main-app.js?v=1777901919464 404 in 71ms
+ GET /_next/static/chunks/app/page.js 404 in 56ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 52ms
+ GET /_next/static/chunks/app/layout.js 404 in 44ms
+ GET / 200 in 97ms
+ GET /_next/static/css/app/layout.css?v=1777901922225 404 in 50ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 82ms
+ GET /_next/static/chunks/main-app.js?v=1777901922225 404 in 86ms
+ GET /_next/static/chunks/app/page.js 404 in 81ms
+ GET /_next/static/chunks/app/layout.js 404 in 75ms
+ GET /? 200 in 93ms
+ GET /_next/static/css/app/layout.css?v=1777901927867 404 in 70ms
+ GET /_next/static/chunks/main-app.js?v=1777901927867 404 in 77ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 76ms
+ GET /_next/static/chunks/app/page.js 404 in 75ms
+ GET /_next/static/chunks/app/layout.js 404 in 74ms
+ GET /? 200 in 133ms
+ GET /_next/static/css/app/layout.css?v=1777901936315 404 in 86ms
+ GET /_next/static/chunks/main-app.js?v=1777901936315 404 in 100ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 99ms
+ GET /_next/static/chunks/app/page.js 404 in 97ms
+ GET /_next/static/chunks/app/layout.js 404 in 97ms
+ GET / 200 in 57ms
+ GET /_next/static/css/app/layout.css?v=1777902070123 404 in 58ms
+ GET /_next/static/chunks/main-app.js?v=1777902070123 404 in 41ms
+ GET /_next/static/css/app/layout.css 404 in 46ms
+ GET /_next/static/chunks/main-app.js 404 in 27ms
+ GET /_next/static/css/app/layout.css 404 in 62ms
+ GET / 200 in 72ms
+ GET /_next/static/css/app/layout.css?v=1777902070123 404 in 44ms
+ GET /_next/static/chunks/main-app.js?v=1777902070123 404 in 57ms
+ GET /_next/static/css/app/layout.css?v=1777902070123 404 in 37ms
+ GET /_next/static/chunks/main-app.js 404 in 66ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 52ms
+ GET /_next/static/chunks/app/layout.js 404 in 49ms
+ GET /_next/static/chunks/app/page.js 404 in 43ms
+[?25h

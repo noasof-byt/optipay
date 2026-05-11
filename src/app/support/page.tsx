@@ -1,9 +1,11 @@
 "use client";
 
-import { useState }                     from "react";
-import { ChevronDown, Mail, MessageCircle } from "lucide-react";
-import { Button }                        from "@/components/ui/Button";
-import { cn }                            from "@/lib/utils";
+import { useState }                          from "react";
+import { ChevronDown, Mail, MessageCircle, Send } from "lucide-react";
+import { Button }                            from "@/components/ui/Button";
+import { cn }                                from "@/lib/utils";
+import { getToken }                          from "@/hooks/useAuth";
+import { toast }                             from "@/hooks/useToast";
 
 const FAQS = [
   {
@@ -32,11 +34,49 @@ const FAQS = [
   },
 ];
 
+const SUBJECTS = [
+  "בעיית חיפוש",
+  "בעיית ארנק",
+  "בעיה טכנית",
+  "אחר",
+] as const;
+
 export default function SupportPage() {
-  const [open, setOpen] = useState<number | null>(null);
+  const [open,    setOpen]    = useState<number | null>(null);
+  const [subject, setSubject] = useState<string>(SUBJECTS[0]);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent,    setSent]    = useState(false);
 
   function toggle(i: number) {
     setOpen((prev) => (prev === i ? null : i));
+  }
+
+  async function handleSubmit() {
+    if (message.trim().length < 10) {
+      toast({ type: "warning", title: "יש לכתוב לפחות 10 תווים" });
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/support/tickets", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization:  `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ subject, message: message.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "שגיאה");
+      setSent(true);
+      setMessage("");
+      toast({ type: "success", title: "הפנייה נשלחה בהצלחה" });
+    } catch (err: any) {
+      toast({ type: "error", title: "שגיאה", description: err.message });
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -104,6 +144,53 @@ export default function SupportPage() {
             </a>
           </div>
         </div>
+      </section>
+
+      {/* Ticket form */}
+      <section>
+        <h2 className="section-title mb-3">שלח פנייה</h2>
+        {sent ? (
+          <div className="card p-6 flex flex-col items-center gap-3 text-center">
+            <span className="text-4xl">✅</span>
+            <p className="text-sm font-bold text-ink">הפנייה נשלחה!</p>
+            <p className="text-xs text-ink-muted">נחזור אליך בהקדם. מספר הפנייה נשמר בחשבונך.</p>
+            <Button size="sm" variant="ghost" onClick={() => setSent(false)}>
+              פנייה נוספת
+            </Button>
+          </div>
+        ) : (
+          <div className="card p-4 space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-ink-muted">נושא</label>
+              <select
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                className="input"
+              >
+                {SUBJECTS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-ink-muted">תיאור הבעיה</label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={4}
+                placeholder="תאר את הבעיה בפירוט..."
+                className="input resize-none"
+                dir="rtl"
+              />
+            </div>
+
+            <Button onClick={handleSubmit} loading={sending} className="w-full">
+              <Send size={15} />
+              שלח פנייה
+            </Button>
+          </div>
+        )}
       </section>
 
       {/* App version */}

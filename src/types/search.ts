@@ -11,7 +11,7 @@ export interface LivePrice {
   currency:    string;    // always "ILS"
   url:         string;    // direct product URL at the store
   inStock:     boolean;
-  source:      "zap" | "ksp" | "bug" | "ivory" | "terminalx" | "manual" | "mock";
+  source:      "zap" | "ksp" | "bug" | "payngo" | "ivory" | "terminalx" | "manual" | "mock";
   fetchedAt:   Date;
 }
 

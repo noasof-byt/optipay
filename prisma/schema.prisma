@@ -1,15 +1,12 @@
 // =============================================================================
 // OptiPay — Prisma Schema
-// Target DB : Microsoft SQL Server (local instance)
+// Target DB : Supabase (PostgreSQL)
 //
-// SQL Server constraints vs PostgreSQL:
-//   1. No native enum type — stored as String @db.NVarChar(50) with app-layer
-//      validation. Valid values documented per field.
-//   2. NVarChar(Max) cannot carry @unique — use bounded NVarChar(N) for unique
-//      columns (N ≤ 450 to stay within SQL Server's 900-byte index key limit).
-//   3. Cascading FK cycles are forbidden — all secondary FK paths in a chain
-//      must use onDelete: NoAction, onUpdate: NoAction.
-//   4. Arrays not supported — multi-value fields stored as JSON strings.
+// Migrated from SQL Server. Changes:
+//   • datasource provider → "postgresql", added directUrl for Supabase pgBouncer
+//   • All @db.NVarChar(Max) → @db.Text
+//   • All @db.NVarChar(N)   → @db.VarChar(N)
+//   • onDelete/onUpdate NoAction kept — valid in PostgreSQL
 // =============================================================================
 
 generator client {
@@ -17,31 +14,29 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // =============================================================================
 // 1. USERS & IDENTITY
 // =============================================================================
 
-// UserRole values: "USER" | "ADMIN" | "SUPPORT"
-// FamilyMemberRole values: "OWNER" | "MEMBER"
-
 model User {
   id                  String    @id @default(uuid())
-  email               String    @unique @db.NVarChar(320)
-  passwordHash        String    @db.NVarChar(Max)
-  displayName         String?   @db.NVarChar(120)
-  phoneNumber         String?   @db.NVarChar(20)
-  avatarUrl           String?   @db.NVarChar(500)
+  email               String    @unique @db.VarChar(320)
+  passwordHash        String    @db.Text
+  displayName         String?   @db.VarChar(120)
+  phoneNumber         String?   @db.VarChar(20)
+  avatarUrl           String?   @db.VarChar(500)
   /// "USER" | "ADMIN" | "SUPPORT"
-  role                String    @default("USER") @db.NVarChar(20)
+  role                String    @default("USER") @db.VarChar(20)
   isLocked            Boolean   @default(false)
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   emailVerified       Boolean   @default(false)
-  emailVerifyToken    String?   @unique @db.NVarChar(128)
+  emailVerifyToken    String?   @unique @db.VarChar(128)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   lastLoginAt         DateTime?
@@ -70,9 +65,9 @@ model User {
 model UserSession {
   id        String   @id @default(uuid())
   userId    String
-  tokenHash String   @unique @db.NVarChar(128)
-  userAgent String?  @db.NVarChar(500)
-  ipAddress String?  @db.NVarChar(45)
+  tokenHash String   @unique @db.VarChar(128)
+  userAgent String?  @db.VarChar(500)
+  ipAddress String?  @db.VarChar(45)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -86,7 +81,7 @@ model UserSession {
 model PasswordResetToken {
   id        String    @id @default(uuid())
   userId    String
-  tokenHash String    @unique @db.NVarChar(128)
+  tokenHash String    @unique @db.VarChar(128)
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -103,7 +98,7 @@ model PasswordResetToken {
 
 model FamilyGroup {
   id        String   @id @default(uuid())
-  name      String   @db.NVarChar(120)
+  name      String   @db.VarChar(120)
   ownerId   String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -120,7 +115,7 @@ model FamilyGroupMember {
   familyGroupId String
   userId        String   @unique
   /// "OWNER" | "MEMBER"
-  role          String   @default("MEMBER") @db.NVarChar(20)
+  role          String   @default("MEMBER") @db.VarChar(20)
   joinedAt      DateTime @default(now())
 
   familyGroup   FamilyGroup @relation(fields: [familyGroupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -135,7 +130,7 @@ model FamilySharedItem {
   familyGroupId  String
   sharedByUserId String
   /// "GIFT_CARD" | "MEMBERSHIP"
-  itemType       String   @db.NVarChar(20)
+  itemType       String   @db.VarChar(20)
   giftCardId     String?  @unique
   membershipId   String?  @unique
   createdAt      DateTime @default(now())
@@ -154,20 +149,20 @@ model FamilySharedItem {
 // =============================================================================
 
 model Club {
-  id                     String   @id @default(uuid())
-  name                   String   @unique @db.NVarChar(120)
-  nameEn                 String?  @db.NVarChar(120)
+  id                     String    @id @default(uuid())
+  name                   String    @unique @db.VarChar(120)
+  nameEn                 String?   @db.VarChar(120)
   /// JSON array: ["alias1","alias2"]
-  aliases                String   @default("[]") @db.NVarChar(Max)
-  description            String?  @db.NVarChar(Max)
-  logoUrl                String?  @db.NVarChar(500)
-  websiteUrl             String?  @db.NVarChar(500)
-  baseDiscountPercentage Decimal  @db.Decimal(5, 2)
-  isPaidMembership       Boolean  @default(false)
-  isActive               Boolean  @default(true)
+  aliases                String    @default("[]") @db.Text
+  description            String?   @db.Text
+  logoUrl                String?   @db.VarChar(500)
+  websiteUrl             String?   @db.VarChar(500)
+  baseDiscountPercentage Decimal   @db.Decimal(5, 2)
+  isPaidMembership       Boolean   @default(false)
+  isActive               Boolean   @default(true)
   lastScrapedAt          DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   memberships       UserClubMembership[]
   storeClubBenefits StoreClubBenefit[]
@@ -180,10 +175,10 @@ model Club {
 
 model GiftCardNetwork {
   id         String   @id @default(uuid())
-  name       String   @unique @db.NVarChar(120)
-  nameEn     String?  @db.NVarChar(120)
-  logoUrl    String?  @db.NVarChar(500)
-  websiteUrl String?  @db.NVarChar(500)
+  name       String   @unique @db.VarChar(120)
+  nameEn     String?  @db.VarChar(120)
+  logoUrl    String?  @db.VarChar(500)
+  websiteUrl String?  @db.VarChar(500)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -197,10 +192,10 @@ model GiftCardNetwork {
 
 model Store {
   id         String   @id @default(uuid())
-  name       String   @unique @db.NVarChar(120)
-  nameEn     String?  @db.NVarChar(120)
-  logoUrl    String?  @db.NVarChar(500)
-  websiteUrl String?  @db.NVarChar(500)
+  name       String   @unique @db.VarChar(120)
+  nameEn     String?  @db.VarChar(120)
+  logoUrl    String?  @db.VarChar(500)
+  websiteUrl String?  @db.VarChar(500)
   isOnline   Boolean  @default(false)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
@@ -217,10 +212,10 @@ model Store {
 model StoreBranch {
   id             String    @id @default(uuid())
   storeId        String
-  branchName     String?   @db.NVarChar(200)
-  city           String?   @db.NVarChar(100)
-  address        String?   @db.NVarChar(500)
-  phone          String?   @db.NVarChar(20)
+  branchName     String?   @db.VarChar(200)
+  city           String?   @db.VarChar(100)
+  address        String?   @db.VarChar(500)
+  phone          String?   @db.VarChar(20)
   isActive       Boolean   @default(true)
   lastVerifiedAt DateTime?
   createdAt      DateTime  @default(now())
@@ -247,20 +242,20 @@ model StoreNetwork {
 }
 
 model StoreClubBenefit {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   storeId            String
   clubId             String
-  discountPercentage Decimal  @db.Decimal(5, 2)
-  maxDiscountAmount  Decimal? @db.Decimal(10, 2)
-  minPurchaseAmount  Decimal? @db.Decimal(10, 2)
-  restrictions       String?  @db.NVarChar(Max)
-  noDoubleDiscount   Boolean  @default(false)
+  discountPercentage Decimal   @db.Decimal(5, 2)
+  maxDiscountAmount  Decimal?  @db.Decimal(10, 2)
+  minPurchaseAmount  Decimal?  @db.Decimal(10, 2)
+  restrictions       String?   @db.Text
+  noDoubleDiscount   Boolean   @default(false)
   validFrom          DateTime?
   validUntil         DateTime?
-  isActive           Boolean  @default(true)
+  isActive           Boolean   @default(true)
   lastVerifiedAt     DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   store              Store    @relation(fields: [storeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   club               Club     @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -276,7 +271,7 @@ model ClubNetworkRule {
   clubId          String
   networkId       String
   canCombine      Boolean  @default(true)
-  ruleDescription String?  @db.NVarChar(Max)
+  ruleDescription String?  @db.Text
   updatedAt       DateTime @updatedAt
 
   club            Club            @relation(fields: [clubId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -294,29 +289,32 @@ model GiftCard {
   id                  String    @id @default(uuid())
   userId              String
   networkId           String?
-  storeSpecificName   String?   @db.NVarChar(120)
-  cardNumberEncrypted String    @db.NVarChar(Max)
-  cardNumberHint      String?   @db.NVarChar(4)
+  storeSpecificName   String?   @db.VarChar(120)
+  cardNumberEncrypted String    @db.Text
+  cardNumberHint      String?   @db.VarChar(4)
   expiryDate          DateTime
   balance             Decimal   @db.Decimal(10, 2)
-  currency            String    @default("ILS") @db.NVarChar(3)
+  currency            String    @default("ILS") @db.VarChar(3)
   isFavorite          Boolean   @default(false)
   isArchived          Boolean   @default(false)
   archivedAt          DateTime?
+  deletedAt           DateTime?
   sortOrder           Int       @default(0)
   usageCount          Int       @default(0)
   lastUsedAt          DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  network    GiftCardNetwork? @relation(fields: [networkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sharedItem FamilySharedItem?
-  usageLogs  CardUsageLog[]
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  network       GiftCardNetwork? @relation(fields: [networkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sharedItem    FamilySharedItem?
+  usageLogs     CardUsageLog[]
+  searchHistory SearchHistory[]
 
   @@index([userId])
   @@index([expiryDate])
   @@index([isArchived])
+  @@index([deletedAt])
   @@map("gift_cards")
 }
 
@@ -324,8 +322,9 @@ model UserClubMembership {
   id                  String    @id @default(uuid())
   userId              String
   clubId              String
-  membershipNumberEnc String?   @db.NVarChar(Max)
+  membershipNumberEnc String?   @db.Text
   isPaidMembership    Boolean   @default(false)
+  monthlyFee          Decimal   @default(0) @db.Decimal(10, 2)
   joinedAt            DateTime  @default(now())
   expiryDate          DateTime?
   lastUsedAt          DateTime?
@@ -333,9 +332,10 @@ model UserClubMembership {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  club       Club             @relation(fields: [clubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  sharedItem FamilySharedItem?
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  club          Club             @relation(fields: [clubId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sharedItem    FamilySharedItem?
+  searchHistory SearchHistory[]
 
   @@unique([userId, clubId])
   @@index([userId])
@@ -349,10 +349,10 @@ model CardUsageLog {
   amountDeducted Decimal  @db.Decimal(10, 2)
   balanceBefore  Decimal  @db.Decimal(10, 2)
   balanceAfter   Decimal  @db.Decimal(10, 2)
-  productName    String?  @db.NVarChar(500)
+  productName    String?  @db.VarChar(500)
   storeId        String?
   /// JSON string: serialized BuyingRoute
-  routeSnapshot  String?  @db.NVarChar(Max)
+  routeSnapshot  String?  @db.Text
   createdAt      DateTime @default(now())
 
   giftCard       GiftCard @relation(fields: [giftCardId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -368,10 +368,10 @@ model CardUsageLog {
 
 model Product {
   id            String   @id @default(uuid())
-  canonicalName String   @db.NVarChar(500)
-  brand         String?  @db.NVarChar(120)
-  category      String?  @db.NVarChar(120)
-  imageUrl      String?  @db.NVarChar(500)
+  canonicalName String   @db.VarChar(500)
+  brand         String?  @db.VarChar(120)
+  category      String?  @db.VarChar(120)
+  imageUrl      String?  @db.VarChar(500)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -385,9 +385,9 @@ model Product {
 model ProductSynonym {
   id        String   @id @default(uuid())
   productId String
-  synonym   String   @unique @db.NVarChar(450)
-  language  String   @default("he") @db.NVarChar(5)
-  source    String?  @db.NVarChar(20)
+  synonym   String   @unique @db.VarChar(450)
+  language  String   @default("he") @db.VarChar(5)
+  source    String?  @db.VarChar(20)
   createdAt DateTime @default(now())
 
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -399,15 +399,27 @@ model ProductSynonym {
 model SearchHistory {
   id                String   @id @default(uuid())
   userId            String
-  query             String   @db.NVarChar(500)
+  query             String   @db.VarChar(500)
   resolvedProductId String?
   resultCount       Int      @default(0)
+  productName       String?  @db.VarChar(500)
+  storeName         String?  @db.VarChar(200)
+  originalPrice     Decimal? @db.Decimal(10, 2)
+  finalPrice        Decimal? @db.Decimal(10, 2)
+  savingsAmount     Decimal? @db.Decimal(10, 2)
+  benefitUsed       String?  @db.VarChar(200)
+  giftCardId        String?
+  membershipId      String?
   createdAt         DateTime @default(now())
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  giftCard   GiftCard?            @relation(fields: [giftCardId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  membership UserClubMembership?  @relation(fields: [membershipId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([giftCardId])
+  @@index([membershipId])
   @@map("search_history")
 }
 
@@ -419,13 +431,13 @@ model SavingsRecord {
   id            String   @id @default(uuid())
   userId        String
   storeId       String?
-  productName   String   @db.NVarChar(500)
+  productName   String   @db.VarChar(500)
   originalPrice Decimal  @db.Decimal(10, 2)
   finalPrice    Decimal  @db.Decimal(10, 2)
   savedAmount   Decimal  @db.Decimal(10, 2)
-  currency      String   @default("ILS") @db.NVarChar(3)
+  currency      String   @default("ILS") @db.VarChar(3)
   /// JSON string: serialized BuyingRoute[]
-  routeSnapshot String   @db.NVarChar(Max)
+  routeSnapshot String   @db.Text
   purchasedAt   DateTime @default(now())
 
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -440,16 +452,14 @@ model SavingsRecord {
 // 7. BACKGROUND SCRAPING ENGINE
 // =============================================================================
 
-// ScrapingJobStatus values: "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED"
-
 model ClubScrapingConfig {
   id             String   @id @default(uuid())
   clubId         String
-  targetUrl      String   @db.NVarChar(1000)
+  targetUrl      String   @db.VarChar(1000)
   /// "playwright" | "cheerio"
-  scrapeStrategy String   @default("playwright") @db.NVarChar(20)
+  scrapeStrategy String   @default("playwright") @db.VarChar(20)
   /// JSON string: { selectors, xpaths, ... }
-  selectorConfig String   @db.NVarChar(Max)
+  selectorConfig String   @db.Text
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -462,16 +472,16 @@ model ClubScrapingConfig {
 }
 
 model ScrapingJob {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   configId       String
   /// "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED"
-  status         String   @default("PENDING") @db.NVarChar(20)
+  status         String    @default("PENDING") @db.VarChar(20)
   startedAt      DateTime?
   completedAt    DateTime?
   durationMs     Int?
-  errorMessage   String?  @db.NVarChar(Max)
-  recordsUpdated Int      @default(0)
-  createdAt      DateTime @default(now())
+  errorMessage   String?   @db.Text
+  recordsUpdated Int       @default(0)
+  createdAt      DateTime  @default(now())
 
   config         ClubScrapingConfig @relation(fields: [configId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   results        ScrapingResult[]
@@ -485,10 +495,10 @@ model ScrapingJob {
 model ScrapingResult {
   id         String   @id @default(uuid())
   jobId      String
-  targetUrl  String   @db.NVarChar(1000)
-  rawHtml    String?  @db.NVarChar(Max)
+  targetUrl  String   @db.VarChar(1000)
+  rawHtml    String?  @db.Text
   /// JSON string: structured extraction output
-  parsedData String   @db.NVarChar(Max)
+  parsedData String   @db.Text
   isApplied  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
@@ -502,16 +512,13 @@ model ScrapingResult {
 // 8. PUSH NOTIFICATIONS
 // =============================================================================
 
-// NotificationType values: "CARD_EXPIRING" | "MEMBERSHIP_UNUSED" | "PROMO" | "SYSTEM"
-
 model PushSubscription {
   id        String   @id @default(uuid())
   userId    String
-  /// Bounded to 450 chars — SQL Server cannot index NVarChar(Max)
-  endpoint  String   @unique @db.NVarChar(450)
-  p256dhKey String   @db.NVarChar(Max)
-  authKey   String   @db.NVarChar(Max)
-  userAgent String?  @db.NVarChar(500)
+  endpoint  String   @unique @db.VarChar(450)
+  p256dhKey String   @db.Text
+  authKey   String   @db.Text
+  userAgent String?  @db.VarChar(500)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -523,20 +530,20 @@ model PushSubscription {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
   /// "CARD_EXPIRING" | "MEMBERSHIP_UNUSED" | "PROMO" | "SYSTEM"
-  type      String   @db.NVarChar(30)
-  title     String   @db.NVarChar(500)
-  body      String   @db.NVarChar(Max)
+  type      String    @db.VarChar(30)
+  title     String    @db.VarChar(500)
+  body      String    @db.Text
   /// JSON string: optional payload
-  payload   String?  @db.NVarChar(Max)
-  isRead    Boolean  @default(false)
-  isSent    Boolean  @default(false)
+  payload   String?   @db.Text
+  isRead    Boolean   @default(false)
+  isSent    Boolean   @default(false)
   sentAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([userId])
   @@index([isRead])
@@ -548,17 +555,15 @@ model Notification {
 // 9. SUPPORT SYSTEM
 // =============================================================================
 
-// TicketStatus values: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
-
 model SupportTicket {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   userId     String
-  subject    String   @db.NVarChar(500)
+  subject    String    @db.VarChar(500)
   /// "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED"
-  status     String   @default("OPEN") @db.NVarChar(20)
-  priority   Int      @default(1)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status     String    @default("OPEN") @db.VarChar(20)
+  priority   Int       @default(1)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   resolvedAt DateTime?
 
   user       User          @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -573,7 +578,7 @@ model TicketReply {
   id         String   @id @default(uuid())
   ticketId   String
   authorId   String
-  body       String   @db.NVarChar(Max)
+  body       String   @db.Text
   isInternal Boolean  @default(false)
   createdAt  DateTime @default(now())
 

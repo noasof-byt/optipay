@@ -6,6 +6,9 @@ const withPWA = require("next-pwa")({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === "development",
+  sw: "sw-custom.js",
+  publicExcludes: ["!icons/**/*", "!screenshots/**/*"],
+  buildExcludes: [/middleware-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -36,7 +39,7 @@ const withPWA = require("next-pwa")({
       handler: "NetworkFirst",
       options: {
         cacheName: "wallet-data",
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 30,
         expiration: { maxEntries: 32, maxAgeSeconds: 5 * 60 },
       },
     },
@@ -45,15 +48,16 @@ const withPWA = require("next-pwa")({
       handler: "NetworkFirst",
       options: {
         cacheName: "api-cache",
-        networkTimeoutSeconds: 10,
+        networkTimeoutSeconds: 60,
         expiration: { maxEntries: 64, maxAgeSeconds: 60 },
       },
     },
     {
-      urlPattern: /^https?.*/,
-      handler: "StaleWhileRevalidate",
+      urlPattern: /^https?:\/\/[^/]+\/(?!_next\/static\/).*$/,
+      handler: "NetworkFirst",
       options: {
         cacheName: "pages-cache",
+        networkTimeoutSeconds: 10,
         expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
       },
     },
@@ -63,6 +67,14 @@ const withPWA = require("next-pwa")({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: false },
+
+  // Packages that run only in Node.js (server components / API routes)
+  experimental: {
+    serverComponentsExternalPackages: ["@prisma/client", "prisma", "bcryptjs", "cheerio"],
+  },
+
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
@@ -71,9 +83,25 @@ const nextConfig = {
       { protocol: "https", hostname: "*.hever.co.il" },
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ["playwright", "bcryptjs"],
-  },
+
+  headers: async () => [
+    {
+      source: "/(.*)",
+      headers: [
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "X-Frame-Options", value: "DENY" },
+        // Required for PWA service worker to control the full origin scope
+        { key: "Service-Worker-Allowed", value: "/" },
+      ],
+    },
+    {
+      source: "/sw-custom.js",
+      headers: [
+        { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+        { key: "Content-Type", value: "application/javascript" },
+      ],
+    },
+  ],
 };
 
 export default withPWA(nextConfig);

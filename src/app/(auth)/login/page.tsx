@@ -42,7 +42,7 @@ export default function LoginPage() {
       }
 
       setAuth(data.token, data.user);
-      window.location.href = "/";
+      window.location.href = "/search";
     } catch {
       toast({ type: "error", title: "שגיאה", description: "אירעה שגיאה. נסה שוב." });
     } finally {

@@ -69,7 +69,7 @@ export async function runSearch(
   const storeIds = [...new Set(
     prices.map((p) => p.storeId).filter(Boolean) as string[]
   )];
-  const storeCtx = await loadStoreContext(storeIds);
+  const storeCtx = await loadStoreContext(storeIds, wallet.memberships);
 
   // ── Step 6: Build buying routes for every store ──────────────────────────
   const allRoutes: BuyingRoute[] = [];

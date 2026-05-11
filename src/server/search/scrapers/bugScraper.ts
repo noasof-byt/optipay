@@ -1,3 +1,4 @@
+import "server-only";
 /**
  * Bug (bug.co.il) Real-Time Price Scraper
  *

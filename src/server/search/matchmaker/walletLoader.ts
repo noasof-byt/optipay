@@ -8,8 +8,9 @@
  *     by the matchmaker for each store in the live price results.
  */
 
-import { prisma } from "@/lib/prisma";
-import { decrypt } from "@/lib/encryption";
+import { prisma }                    from "@/lib/prisma";
+import { decrypt }                   from "@/lib/encryption";
+import { fetchMissingClubBenefits }  from "../scrapers/clubBenefitScraper";
 
 export interface WalletGiftCard {
   id:          string;
@@ -134,28 +135,67 @@ export async function loadUserWallet(userId: string): Promise<UserWallet> {
  * Load store-specific benefit and accepted-network data
  * for a list of store IDs from the live price results.
  */
-export async function loadStoreContext(storeIds: string[]): Promise<StoreContext> {
+export async function loadStoreContext(
+  storeIds:    string[],
+  memberships?: WalletMembership[],
+): Promise<StoreContext> {
   if (!storeIds.length) return { storeClubBenefits: [], storeNetworks: [] };
 
-  const [rawBenefits, rawNetworks] = await Promise.all([
+  const [rawBenefits, rawNetworks, rawStores] = await Promise.all([
     prisma.storeClubBenefit.findMany({
       where: { storeId: { in: storeIds }, isActive: true },
     }),
     prisma.storeNetwork.findMany({
       where: { storeId: { in: storeIds }, isActive: true },
     }),
+    memberships?.length
+      ? prisma.store.findMany({
+          where:  { id: { in: storeIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as { id: string; name: string }[]),
   ]);
 
+  const storeClubBenefits: StoreClubBenefit[] = rawBenefits.map((b) => ({
+    storeId:          b.storeId,
+    clubId:           b.clubId,
+    discountPct:      Number(b.discountPercentage),
+    maxAmount:        b.maxDiscountAmount ? Number(b.maxDiscountAmount) : null,
+    minPurchase:      b.minPurchaseAmount ? Number(b.minPurchaseAmount) : null,
+    noDoubleDiscount: b.noDoubleDiscount,
+    restrictions:     b.restrictions,
+  }));
+
+  // ── Supplement with live SERP benefit data for missing combos ─────────────
+  // Best-effort: never let a SERP failure block the overall search response.
+  if (memberships?.length && rawStores.length) {
+    try {
+      const liveResults = await fetchMissingClubBenefits({
+        stores:           rawStores.map((s) => ({ storeId: s.id, storeName: s.name })),
+        clubs:            memberships.map((m) => ({ clubId: m.clubId, clubName: m.clubName })),
+        existingBenefits: storeClubBenefits,
+      });
+
+      for (const live of liveResults) {
+        storeClubBenefits.push({
+          storeId:          live.storeId,
+          clubId:           live.clubId,
+          discountPct:      live.discountPct,
+          maxAmount:        null,
+          minPurchase:      null,
+          noDoubleDiscount: false,
+          restrictions:     "נתון חי מהאינטרנט — אמת מול האתר הרשמי",
+        });
+      }
+    } catch (err) {
+      // Live benefit lookup is best-effort — log and continue without it
+      const { logger } = await import("@/lib/logger");
+      logger.warn("Live club benefit SERP failed — continuing without live data", { err: String(err) });
+    }
+  }
+
   return {
-    storeClubBenefits: rawBenefits.map((b) => ({
-      storeId:          b.storeId,
-      clubId:           b.clubId,
-      discountPct:      Number(b.discountPercentage),
-      maxAmount:        b.maxDiscountAmount ? Number(b.maxDiscountAmount) : null,
-      minPurchase:      b.minPurchaseAmount ? Number(b.minPurchaseAmount) : null,
-      noDoubleDiscount: b.noDoubleDiscount,
-      restrictions:     b.restrictions,
-    })),
+    storeClubBenefits,
     storeNetworks: rawNetworks.map((n) => ({
       storeId:   n.storeId,
       networkId: n.networkId,
