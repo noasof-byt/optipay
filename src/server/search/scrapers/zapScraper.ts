@@ -2,147 +2,118 @@ import "server-only";
 /**
  * ZAP (zap.co.il) Price Scraper
  *
- * Fetches /search.aspx?keyword=QUERY&sog=a with browser headers, then
- * tries CSS selectors in order. Falls back to regex extraction if all
- * selectors return 0 items.
+ * ZAP renders products client-side — static HTML fetch yields no products.
+ * Uses ZAP's internal JSON API instead.
  *
- * NO Playwright — fetch + cheerio only (Vercel serverless constraint).
+ * Endpoint 1: api.zap.co.il/api/ProductSearch/
+ * Endpoint 2: www.zap.co.il/api/search (fallback)
+ *
+ * NO Playwright — fetch + JSON only (Vercel serverless constraint).
  */
 
-import * as cheerio from "cheerio";
-import { LivePrice }  from "@/types/search";
-import { logger }     from "@/lib/logger";
+import { LivePrice } from "@/types/search";
+import { logger }    from "@/lib/logger";
 
 const ZAP_BASE = "https://www.zap.co.il";
-const ZAP_SEARCH = (q: string) =>
-  `${ZAP_BASE}/search.aspx?keyword=${encodeURIComponent(q)}&sog=a`;
 
-const BROWSER_HEADERS: Record<string, string> = {
-  "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-  "Accept-Language": "he-IL,he;q=0.9",
-  "Accept-Encoding": "gzip, deflate, br",
-  "Connection":      "keep-alive",
-  "Cache-Control":   "max-age=0",
-  "Upgrade-Insecure-Requests": "1",
+const ZAP_EP1 = (q: string) =>
+  `https://api.zap.co.il/api/ProductSearch/?keyword=${encodeURIComponent(q)}&pageSize=5&pageNumber=1`;
+
+const ZAP_EP2 = (q: string) =>
+  `${ZAP_BASE}/api/search?term=${encodeURIComponent(q)}&pageSize=5`;
+
+const API_HEADERS: Record<string, string> = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept":     "application/json",
+  "Referer":    "https://www.zap.co.il/",
+  "Origin":     "https://www.zap.co.il",
 };
 
-const CANDIDATE_SELECTORS = [
-  ".category-item",
-  ".it-nm",
-  "[class*='product-item']",
-  "[class*='CatItem']",
-  "[class*='zap-item']",
-] as const;
+function parseZapProducts(data: unknown): LivePrice[] {
+  // Try common response shapes
+  const raw = data as Record<string, unknown>;
+  const products: unknown[] =
+    (Array.isArray(raw?.Products)  ? raw.Products  : null) ??
+    (Array.isArray(raw?.products)  ? raw.products  : null) ??
+    (Array.isArray(raw?.Items)     ? raw.Items     : null) ??
+    (Array.isArray(raw?.items)     ? raw.items     : null) ??
+    (Array.isArray(raw?.results)   ? raw.results   : null) ??
+    (Array.isArray(raw?.data)      ? raw.data      : null) ??
+    [];
+
+  if (!products.length) return [];
+
+  return (products as Record<string, unknown>[])
+    .slice(0, 5)
+    .map((p) => {
+      const price = Number(
+        p.MinPrice ?? p.minPrice ?? p.Price ?? p.price ?? p.SalePrice ?? 0
+      );
+
+      const rawUrl = String(
+        p.ProductURL ?? p.productUrl ?? p.ProductUrl ??
+        p.URL ?? p.url ?? p.link ?? ""
+      );
+      const fullUrl = rawUrl.startsWith("http")
+        ? rawUrl
+        : rawUrl
+          ? `${ZAP_BASE}${rawUrl.startsWith("/") ? "" : "/"}${rawUrl}`
+          : "";
+
+      return {
+        storeName: "ZAP",
+        price,
+        currency:  "ILS",
+        url:       fullUrl,
+        inStock:   true,
+        source:    "zap" as const,
+        fetchedAt: new Date(),
+      };
+    })
+    // Filter bad prices AND results that fall back to homepage (no real product URL)
+    .filter((r) => r.price >= 10 && r.price <= 1_000_000 && r.url.includes("zap.co.il") && r.url !== ZAP_BASE);
+}
+
+async function tryEndpoint(url: string): Promise<LivePrice[]> {
+  logger.info(`[ZAP] API status: fetching`, { url });
+  const res = await fetch(url, {
+    headers:  API_HEADERS,
+    signal:   AbortSignal.timeout(12_000),
+    redirect: "follow",
+  });
+
+  logger.info(`[ZAP] API status: ${res.status}`);
+  if (!res.ok) return [];
+
+  const text = await res.text();
+  logger.info(`[ZAP] Response preview: ${text.slice(0, 300)}`);
+
+  return parseZapProducts(JSON.parse(text));
+}
 
 export async function scrapeZap(query: string): Promise<LivePrice[]> {
+  // ── Endpoint 1: api.zap.co.il internal search ─────────────────────────────
   try {
-    const url = ZAP_SEARCH(query);
-    logger.info("[ZAP] Fetching", { url });
-
-    const res = await fetch(url, {
-      headers:  BROWSER_HEADERS,
-      signal:   AbortSignal.timeout(15_000),
-      redirect: "follow",
-    });
-
-    if (!res.ok) {
-      logger.warn(`[ZAP] HTTP error: ${res.status}`);
-      return [];
+    const results = await tryEndpoint(ZAP_EP1(query));
+    if (results.length) {
+      logger.info(`[ZAP] Scrape complete via endpoint 1`, { query, found: results.length });
+      return results.sort((a, b) => a.price - b.price).slice(0, 5);
     }
-
-    const html = await res.text();
-    logger.info(`[ZAP] HTML length: ${html.length}`);
-    // Log first 3000 chars for structure diagnosis
-    logger.info(`[ZAP] HTML preview: ${html.slice(0, 3000)}`);
-
-    const $ = cheerio.load(html);
-    // Remove sponsored / promoted zones before iterating
-    $("#TopItems, .TopItems, .sponsored, .promoted, .adBanner").remove();
-
-    const results: LivePrice[] = [];
-    let foundViaSelector = false;
-
-    // ── Try CSS selectors in order ─────────────────────────────────────────
-    for (const sel of CANDIDATE_SELECTORS) {
-      const count = $(sel).length;
-      logger.info(`[ZAP] Selector "${sel}" → ${count} items`);
-      if (count === 0) continue;
-
-      $(sel).each((_, el) => {
-        const card = $(el);
-
-        // Extract price from nested price elements, fall back to card text
-        const priceText =
-          card.find(".price-container .price, .item-price, [class*='price'], .prc").first().text().trim() ||
-          card.text().trim();
-
-        const priceMatch = priceText.match(/[\d,]+/);
-        const price = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, "")) : 0;
-        if (!price || price < 10 || price > 1_000_000) return;
-
-        const href    = card.find("a[href]").first().attr("href") ?? "";
-        const fullUrl = href.startsWith("http") ? href : href ? `${ZAP_BASE}${href}` : url;
-
-        results.push({
-          storeName: "ZAP",
-          price,
-          currency:  "ILS",
-          url:       fullUrl,
-          inStock:   true,
-          source:    "zap",
-          fetchedAt: new Date(),
-        });
-      });
-
-      if (results.length > 0) {
-        foundViaSelector = true;
-        break;
-      }
-    }
-
-    // ── Regex fallback when all selectors return 0 ─────────────────────────
-    if (!foundViaSelector || results.length === 0) {
-      logger.info("[ZAP] All selectors returned 0 — falling back to regex extraction");
-
-      const priceMatches: number[] = [];
-
-      // Try JSON "price" fields first
-      for (const m of html.matchAll(/"price"\s*:\s*"?(\d+)"?/g)) {
-        const p = parseFloat(m[1]);
-        if (p >= 10 && p <= 1_000_000) priceMatches.push(p);
-      }
-
-      // Fall back to ₪ symbol
-      if (!priceMatches.length) {
-        for (const m of html.matchAll(/₪\s*([\d,]+)/g)) {
-          const p = parseFloat(m[1].replace(/,/g, ""));
-          if (p >= 10 && p <= 1_000_000) priceMatches.push(p);
-        }
-      }
-
-      logger.info(`[ZAP] Regex found ${priceMatches.length} prices`);
-
-      // Deduplicate and take cheapest 5
-      const unique = [...new Set(priceMatches)].sort((a, b) => a - b).slice(0, 5);
-      for (const price of unique) {
-        results.push({
-          storeName: "ZAP",
-          price,
-          currency:  "ILS",
-          url,
-          inStock:   true,
-          source:    "zap",
-          fetchedAt: new Date(),
-        });
-      }
-    }
-
-    logger.info(`[ZAP] Scrape complete`, { query, found: results.length });
-    return results.sort((a, b) => a.price - b.price).slice(0, 5);
-
-  } catch (err) {
-    logger.warn("[ZAP] Scraper failed", { err: String(err) });
-    return [];
+  } catch (e) {
+    logger.warn("[ZAP] Endpoint 1 failed", { err: String(e) });
   }
+
+  // ── Endpoint 2: www.zap.co.il/api/search ─────────────────────────────────
+  try {
+    const results = await tryEndpoint(ZAP_EP2(query));
+    if (results.length) {
+      logger.info(`[ZAP] Scrape complete via endpoint 2`, { query, found: results.length });
+      return results.sort((a, b) => a.price - b.price).slice(0, 5);
+    }
+  } catch (e) {
+    logger.warn("[ZAP] Endpoint 2 failed", { err: String(e) });
+  }
+
+  logger.warn("[ZAP] All endpoints failed", { query });
+  return [];
 }

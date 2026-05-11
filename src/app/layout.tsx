@@ -60,6 +60,12 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
+        {/* Restore accessibility settings before React hydration — prevents flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('accessibility')||'{}');var h=document.documentElement;if(s.textSize==='large')h.classList.add('acc-text-large');if(s.textSize==='xlarge')h.classList.add('acc-text-xlarge');if(s.highContrast)h.classList.add('acc-high-contrast');if(s.lineRelaxed)h.classList.add('acc-line-relaxed');if(s.reduceMotion)h.classList.add('acc-reduced-motion');}catch(e){}})();`,
+          }}
+        />
         {/* Preconnect to Google Fonts for Rubik + Assistant */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
