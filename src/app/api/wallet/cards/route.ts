@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/wallet/cards  — list active gift cards (sort: expiry | balance)
  * POST /api/wallet/cards  — add a new gift card

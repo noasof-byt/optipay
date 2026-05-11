@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/search?q=QUERY  — legacy orchestrator (NLP + Playwright scrapers)
  * POST /api/search           — Phase 4 engine (Gemini normalizer + direct-HTTP scrapers)

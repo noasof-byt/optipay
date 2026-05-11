@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/dashboard
  * Returns aggregated savings data for the dashboard.

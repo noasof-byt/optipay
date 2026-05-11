@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wallet/cards/archived — list archived (but not deleted) gift cards
  * User can restore them from the archive.

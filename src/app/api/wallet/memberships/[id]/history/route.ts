@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wallet/memberships/[id]/history
  * Returns all SearchHistory records where this membership was used.

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from "next/server";
 import { runClubScraper }   from "@/lib/cron/clubScraper";
 import { runExpiryChecker } from "@/lib/cron/expiryChecker";

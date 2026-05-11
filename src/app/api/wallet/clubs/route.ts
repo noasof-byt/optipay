@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wallet/clubs
  * Returns all active clubs for dropdown population.

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET   /api/notifications        — list user notifications
  * PATCH /api/notifications/[id]   — mark as read  (handled inline via ?id=)

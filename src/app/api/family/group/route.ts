@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/family/group  — get the caller's family group (or null)
  * DELETE /api/family/group — leave / disband the group

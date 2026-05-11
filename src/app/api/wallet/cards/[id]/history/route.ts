@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/wallet/cards/[id]/history
  * Returns all SearchHistory records where this gift card was used.

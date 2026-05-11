@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET    /api/wallet/memberships/[id]  — membership detail
  * PATCH  /api/wallet/memberships/[id]  — update expiryDate / isPaidMembership / monthlyFee

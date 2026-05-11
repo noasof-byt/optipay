@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * DELETE /api/auth/account
  * Soft-deletes the authenticated user's account.

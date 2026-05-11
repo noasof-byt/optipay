@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/push/subscribe   — register a push subscription
  * DELETE /api/push/subscribe — unregister (unsubscribe)

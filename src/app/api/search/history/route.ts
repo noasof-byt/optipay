@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/search/history   — last 10 searches for the logged-in user
  * DELETE /api/search/history?id=<id>  — remove a single history entry

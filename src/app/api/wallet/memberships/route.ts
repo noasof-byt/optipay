@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/wallet/memberships  — list user's club memberships
  * POST /api/wallet/memberships  — add a new membership

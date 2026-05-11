@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/profile  — fetch current user's profile
  * PATCH /api/profile — update displayName and/or email

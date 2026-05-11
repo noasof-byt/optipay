@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET    /api/wallet/cards/[id]  — card detail + recent usage logs
  * PATCH  /api/wallet/cards/[id]  — update balance / favorite / expiryDate / isArchived
