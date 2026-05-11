@@ -9,16 +9,15 @@ import { prisma } from "@/lib/prisma";
 const RequestSchema = z.object({ email: z.string().email() });
 const ResetSchema   = z.object({ token: z.string(), password: z.string().min(8) });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT ?? 587),
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
-
 // POST /api/auth/reset-password  → request reset link
 // PUT  /api/auth/reset-password  → confirm with token + new password
 
 export async function POST(req: NextRequest) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
   let body: z.infer<typeof RequestSchema>;
   try {
     body = RequestSchema.parse(await req.json());

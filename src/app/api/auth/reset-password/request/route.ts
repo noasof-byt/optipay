@@ -8,13 +8,12 @@ import { prisma }  from "@/lib/prisma";
 
 const Schema = z.object({ email: z.string().email() });
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT ?? 587),
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-});
-
 export async function POST(req: NextRequest) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
   let body: z.infer<typeof Schema>;
   try {
     body = Schema.parse(await req.json());
