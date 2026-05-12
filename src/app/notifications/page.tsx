@@ -30,6 +30,11 @@ export default function NotificationsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // Generate any new expiry notifications before fetching
+    await fetch("/api/notifications/generate", {
+      method:  "POST",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).catch(() => {});
     const res  = await fetch("/api/notifications", {
       headers: { Authorization: `Bearer ${getToken()}` },
     });

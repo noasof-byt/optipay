@@ -34,6 +34,11 @@ export default function WalletPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setIsInFamilyGroup(!!data))
       .catch(() => {});
+    // Silently generate expiry notifications in the background
+    fetch("/api/notifications/generate", {
+      method:  "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
   }, []);
 
   // ── Add card modal ────────────────────────────────────────────────────────
