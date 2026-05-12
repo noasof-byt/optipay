@@ -9,7 +9,11 @@
 
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient({ log: ["warn", "error"] });
+// Seeds must bypass the PgBouncer pooler — use DIRECT_URL (port 5432) when available
+const prisma = new PrismaClient({
+  log: ["warn", "error"],
+  datasources: { db: { url: process.env.DIRECT_URL ?? process.env.DATABASE_URL } },
+});
 
 // ── Scraper store names (must match what scrapers emit as storeName) ──────────
 const SCRAPER_STORE_NAMES = [
