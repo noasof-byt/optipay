@@ -157,6 +157,16 @@ export default function WalletPage() {
       setAddCard(false);
       resetCardForm();
       reloadCards();
+      // If card expires within 30 days, generate notification and update bell immediately
+      const daysLeft = Math.ceil((new Date(cardExpiry).getTime() - Date.now()) / 86_400_000);
+      if (daysLeft <= 30) {
+        fetch("/api/notifications/generate", {
+          method:  "POST",
+          headers: { Authorization: `Bearer ${getToken()}` },
+        }).then(() => {
+          window.dispatchEvent(new CustomEvent("notificationsUpdated"));
+        }).catch(() => {});
+      }
     } catch (err: any) {
       toast({ type: "error", title: "שגיאה", description: err.message });
     } finally {

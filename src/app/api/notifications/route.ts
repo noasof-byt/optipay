@@ -14,6 +14,14 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
   const userId = getUserId(req);
 
+  // Fast path — only return unread count (used by TopBar bell)
+  if (req.nextUrl.searchParams.get("unreadOnly") === "true") {
+    const unreadCount = await prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    return NextResponse.json({ unreadCount });
+  }
+
   const notifications = await prisma.notification.findMany({
     where:   { userId },
     orderBy: { createdAt: "desc" },
