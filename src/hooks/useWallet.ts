@@ -5,34 +5,36 @@ import { getToken } from "./useAuth";
 import { toast }    from "./useToast";
 
 export interface GiftCardItem {
-  id:               string;
-  networkId:        string | null;
-  networkName:      string | null;
-  networkLogo:      string | null;
-  storeSpecificName: string | null;
-  cardNumberHint:   string | null;
-  expiryDate:       string;
-  balance:          number;
-  currency:         string;
-  isFavorite:       boolean;
-  isArchived:       boolean;
-  usageCount:       number;
-  lastUsedAt:       string | null;
-  isShared:         boolean;
-  sharedBy:         string | null;
+  id:                  string;
+  networkId:           string | null;
+  networkName:         string | null;
+  networkLogo:         string | null;
+  storeSpecificName:   string | null;
+  cardNumberHint:      string | null;
+  expiryDate:          string;
+  balance:             number;
+  currency:            string;
+  isFavorite:          boolean;
+  isArchived:          boolean;
+  usageCount:          number;
+  lastUsedAt:          string | null;
+  isShared:            boolean;
+  sharedBy:            string | null;
+  isSharedWithFamily:  boolean;
 }
 
 export interface MembershipItem {
-  id:               string;
-  clubId:           string;
-  clubName:         string;
-  clubLogo:         string | null;
-  baseDiscount:     number;
-  isPaidMembership: boolean;
-  expiryDate:       string | null;
-  lastUsedAt:       string | null;
-  isShared:         boolean;
-  sharedBy:         string | null;
+  id:                  string;
+  clubId:              string;
+  clubName:            string;
+  clubLogo:            string | null;
+  baseDiscount:        number;
+  isPaidMembership:    boolean;
+  expiryDate:          string | null;
+  lastUsedAt:          string | null;
+  isShared:            boolean;
+  sharedBy:            string | null;
+  isSharedWithFamily:  boolean;
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -105,7 +107,22 @@ export function useGiftCards(archived = false) {
     toast({ type: "success", title: "הכרטיס שוחזר לארנק" });
   }, []);
 
-  return { cards, loading, reload: load, toggleFavorite, updateBalance, archiveCard, restoreCard };
+  const toggleCardSharing = useCallback(async (id: string, isSharedWithFamily: boolean) => {
+    await apiFetch(`/api/wallet/cards/${id}`, {
+      method: "PATCH",
+      body:   JSON.stringify({ isSharedWithFamily }),
+    });
+    setCards((prev) => prev.map((c) => c.id === id ? { ...c, isSharedWithFamily } : c));
+    toast({
+      type:  "success",
+      title: isSharedWithFamily ? "הכרטיס שותף עם המשפחה" : "השיתוף הופסק",
+    });
+  }, []);
+
+  return {
+    cards, loading, reload: load,
+    toggleFavorite, updateBalance, archiveCard, restoreCard, toggleCardSharing,
+  };
 }
 
 export function useMemberships() {
@@ -133,5 +150,17 @@ export function useMemberships() {
     toast({ type: "success", title: "החברות הוסרה" });
   }, []);
 
-  return { memberships, loading, reload: load, removeMembership };
+  const toggleMembershipSharing = useCallback(async (id: string, isSharedWithFamily: boolean) => {
+    await apiFetch(`/api/wallet/memberships/${id}`, {
+      method: "PATCH",
+      body:   JSON.stringify({ isSharedWithFamily }),
+    });
+    setMemberships((prev) => prev.map((m) => m.id === id ? { ...m, isSharedWithFamily } : m));
+    toast({
+      type:  "success",
+      title: isSharedWithFamily ? "החברות שותפה עם המשפחה" : "השיתוף הופסק",
+    });
+  }, []);
+
+  return { memberships, loading, reload: load, removeMembership, toggleMembershipSharing };
 }

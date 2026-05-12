@@ -17,16 +17,24 @@ import { cn }       from "@/lib/utils";
 type Tab     = "cards" | "memberships";
 type SortBy  = "expiry" | "balance";
 
-// ── Inline modal types ────────────────────────────────────────────────────────
-
 interface Network { id: string; name: string; logoUrl: string | null; }
 interface Club    { id: string; name: string; }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function WalletPage() {
   const [tab,     setTab]     = useState<Tab>("cards");
   const [sortBy,  setSortBy]  = useState<SortBy>("expiry");
+
+  // ── Family group membership ───────────────────────────────────────────────
+  const [isInFamilyGroup, setIsInFamilyGroup] = useState(false);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/family/group", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setIsInFamilyGroup(!!data))
+      .catch(() => {});
+  }, []);
 
   // ── Add card modal ────────────────────────────────────────────────────────
   const [addCard,        setAddCard]        = useState(false);
@@ -55,13 +63,15 @@ export default function WalletPage() {
     toggleFavorite,
     updateBalance,
     archiveCard,
+    toggleCardSharing,
   } = useGiftCards(false);
 
   const {
     memberships,
-    loading:      membLoading,
-    reload:       reloadMemberships,
+    loading:               membLoading,
+    reload:                reloadMemberships,
     removeMembership,
+    toggleMembershipSharing,
   } = useMemberships();
 
   const loading = cardsLoading || membLoading;
@@ -79,6 +89,7 @@ export default function WalletPage() {
   const sortedCards = useMemo(() => {
     const copy = [...activeCards];
     copy.sort((a, b) => {
+      if (a.isShared !== b.isShared) return a.isShared ? 1 : -1; // own cards first
       if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
       const aZero = a.balance === 0;
       const bZero = b.balance === 0;
@@ -311,6 +322,8 @@ export default function WalletPage() {
                     onFavorite={toggleFavorite}
                     onBalanceUpdate={updateBalance}
                     onArchive={archiveCard}
+                    onShareToggle={toggleCardSharing}
+                    isInFamilyGroup={isInFamilyGroup}
                   />
                 ))
               )}
@@ -333,6 +346,8 @@ export default function WalletPage() {
                     key={m.id}
                     membership={m}
                     onRemove={removeMembership}
+                    onShareToggle={toggleMembershipSharing}
+                    isInFamilyGroup={isInFamilyGroup}
                   />
                 ))
               )}

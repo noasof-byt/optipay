@@ -58,12 +58,13 @@ export async function GET(
 
 // ── PATCH ─────────────────────────────────────────────────────────────────────
 const PatchSchema = z.object({
-  balance:    z.number().min(0).optional(),
-  isFavorite: z.boolean().optional(),
-  expiryDate: z.string().refine((d) => new Date(d) > new Date(), {
+  balance:             z.number().min(0).optional(),
+  isFavorite:          z.boolean().optional(),
+  expiryDate:          z.string().refine((d) => new Date(d) > new Date(), {
     message: "תאריך התפוגה חייב להיות בעתיד",
   }).optional(),
-  isArchived: z.boolean().optional(),
+  isArchived:          z.boolean().optional(),
+  isSharedWithFamily:  z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: "אין שדות לעדכון" });
 
 export async function PATCH(
@@ -102,8 +103,12 @@ export async function PATCH(
       ...(body.expiryDate !== undefined && { expiryDate: new Date(body.expiryDate) }),
       ...(shouldArchive && { isArchived: true,  archivedAt: new Date() }),
       ...(shouldRestore && { isArchived: false, archivedAt: null }),
+      ...(body.isSharedWithFamily !== undefined && { isSharedWithFamily: body.isSharedWithFamily }),
     },
-    select: { id: true, balance: true, isFavorite: true, isArchived: true, expiryDate: true },
+    select: {
+      id: true, balance: true, isFavorite: true,
+      isArchived: true, expiryDate: true, isSharedWithFamily: true,
+    },
   });
 
   return NextResponse.json({

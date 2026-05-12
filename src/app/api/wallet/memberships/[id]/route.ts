@@ -36,8 +36,9 @@ const PatchSchema = z.object({
   expiryDate: z.string().refine((d) => new Date(d) > new Date(), {
     message: "תאריך התפוגה חייב להיות בעתיד",
   }).optional(),
-  isPaidMembership: z.boolean().optional(),
-  monthlyFee:       z.number().min(0).optional(),
+  isPaidMembership:   z.boolean().optional(),
+  monthlyFee:         z.number().min(0).optional(),
+  isSharedWithFamily: z.boolean().optional(),
 }).refine((d) => Object.keys(d).length > 0, { message: "אין שדות לעדכון" });
 
 export async function PATCH(
@@ -67,11 +68,15 @@ export async function PATCH(
   const updated = await prisma.userClubMembership.update({
     where: { id: params.id },
     data: {
-      ...(body.expiryDate       !== undefined && { expiryDate: new Date(body.expiryDate) }),
-      ...(body.isPaidMembership !== undefined && { isPaidMembership: body.isPaidMembership }),
-      ...(body.monthlyFee       !== undefined && { monthlyFee: body.monthlyFee }),
+      ...(body.expiryDate         !== undefined && { expiryDate: new Date(body.expiryDate) }),
+      ...(body.isPaidMembership   !== undefined && { isPaidMembership: body.isPaidMembership }),
+      ...(body.monthlyFee         !== undefined && { monthlyFee: body.monthlyFee }),
+      ...(body.isSharedWithFamily !== undefined && { isSharedWithFamily: body.isSharedWithFamily }),
     },
-    select: { id: true, expiryDate: true, isPaidMembership: true, monthlyFee: true },
+    select: {
+      id: true, expiryDate: true,
+      isPaidMembership: true, monthlyFee: true, isSharedWithFamily: true,
+    },
   });
 
   return NextResponse.json({ ...updated, monthlyFee: Number(updated.monthlyFee) });

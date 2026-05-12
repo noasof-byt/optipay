@@ -297,6 +297,7 @@ model GiftCard {
   currency            String    @default("ILS") @db.VarChar(3)
   isFavorite          Boolean   @default(false)
   isArchived          Boolean   @default(false)
+  isSharedWithFamily  Boolean   @default(false)
   archivedAt          DateTime?
   deletedAt           DateTime?
   sortOrder           Int       @default(0)
@@ -329,6 +330,7 @@ model UserClubMembership {
   expiryDate          DateTime?
   lastUsedAt          DateTime?
   isActive            Boolean   @default(true)
+  isSharedWithFamily  Boolean   @default(false)
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 

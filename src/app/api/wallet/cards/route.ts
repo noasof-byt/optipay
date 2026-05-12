@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 /**
- * GET  /api/wallet/cards  — list active gift cards (sort: expiry | balance)
+ * GET  /api/wallet/cards  — list active gift cards (own + family-shared)
  * POST /api/wallet/cards  — add a new gift card
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -28,6 +28,9 @@ const AddCardSchema = z.object({
   isFavorite: z.boolean().optional(),
 });
 
+// ── Shared include clause ─────────────────────────────────────────────────────
+const CARD_INCLUDE = { network: { select: { id: true, name: true, logoUrl: true } } } as const;
+
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   const authError = await requireAuth(req);
@@ -38,12 +41,18 @@ export async function GET(req: NextRequest) {
     const sortParam = req.nextUrl.searchParams.get("sort") ?? "expiry";
     const now = new Date();
 
-    const cards = await prisma.giftCard.findMany({
+    // ── 1. Own active cards ────────────────────────────────────────────────
+    const ownCards = await prisma.giftCard.findMany({
       where:   { userId, isArchived: false, deletedAt: null, expiryDate: { gte: now } },
-      include: { network: { select: { id: true, name: true, logoUrl: true } } },
+      include: CARD_INCLUDE,
     });
 
-    function mapCard(c: typeof cards[0], extra?: { isShared?: boolean; sharedBy?: string | null }) {
+    type CardWithNetwork = typeof ownCards[0];
+
+    function mapCard(
+      c: CardWithNetwork,
+      extra?: { isShared?: boolean; sharedBy?: string | null }
+    ) {
       let cardNumber: string | null = null;
       try {
         cardNumber = c.cardNumberEncrypted ? decrypt(c.cardNumberEncrypted) : null;
@@ -51,27 +60,28 @@ export async function GET(req: NextRequest) {
         cardNumber = null;
       }
       return {
-        id:                c.id,
-        networkId:         c.networkId,
-        networkName:       c.network?.name ?? null,
-        networkLogo:       c.network?.logoUrl ?? null,
-        storeSpecificName: c.storeSpecificName,
-        cardNumberHint:    c.cardNumberHint,
+        id:                  c.id,
+        networkId:           c.networkId,
+        networkName:         c.network?.name ?? null,
+        networkLogo:         c.network?.logoUrl ?? null,
+        storeSpecificName:   c.storeSpecificName,
+        cardNumberHint:      c.cardNumberHint,
         cardNumber,
-        expiryDate:        c.expiryDate,
-        balance:           Number(c.balance),
-        currency:          c.currency,
-        isFavorite:        c.isFavorite,
-        isArchived:        c.isArchived,
-        usageCount:        c.usageCount,
-        lastUsedAt:        c.lastUsedAt,
-        createdAt:         c.createdAt,
-        isShared:          extra?.isShared ?? false,
-        sharedBy:          extra?.sharedBy ?? null,
+        expiryDate:          c.expiryDate,
+        balance:             Number(c.balance),
+        currency:            c.currency,
+        isFavorite:          c.isFavorite,
+        isArchived:          c.isArchived,
+        isSharedWithFamily:  extra?.isShared ? false : c.isSharedWithFamily,
+        usageCount:          c.usageCount,
+        lastUsedAt:          c.lastUsedAt,
+        createdAt:           c.createdAt,
+        isShared:            extra?.isShared ?? false,
+        sharedBy:            extra?.sharedBy ?? null,
       };
     }
 
-    const sorted = [...cards].sort((a, b) => {
+    const sorted = [...ownCards].sort((a, b) => {
       if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
       const aZero = Number(a.balance) === 0;
       const bZero = Number(b.balance) === 0;
@@ -80,44 +90,40 @@ export async function GET(req: NextRequest) {
       return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
     });
 
-    const safe = sorted.map((c) => mapCard(c));
+    const result = sorted.map((c) => mapCard(c));
 
-    // ── Include gift cards shared by family group members ──────────────────
-    const familyMembership = await prisma.familyGroupMember.findUnique({
+    // ── 2. Family-shared cards from other members ──────────────────────────
+    const familyMember = await prisma.familyGroupMember.findFirst({
       where:  { userId },
       select: { familyGroupId: true },
     });
-    if (familyMembership) {
-      const sharedItems = await prisma.familySharedItem.findMany({
-        where: {
-          familyGroupId:  familyMembership.familyGroupId,
-          itemType:       "GIFT_CARD",
-          sharedByUserId: { not: userId },
-        },
-        select: {
-          giftCardId: true,
-          sharedBy:   { select: { displayName: true, email: true } },
-        },
+
+    if (familyMember) {
+      const otherMembers = await prisma.familyGroupMember.findMany({
+        where:   { familyGroupId: familyMember.familyGroupId, userId: { not: userId } },
+        include: { user: { select: { displayName: true, email: true } } },
       });
-      const sharedCardIds = sharedItems.map((i) => i.giftCardId).filter(Boolean) as string[];
-      console.log(`[FAMILY] Found ${sharedCardIds.length} shared cards for user ${userId}`);
-      if (sharedCardIds.length) {
+
+      for (const member of otherMembers) {
         const sharedCards = await prisma.giftCard.findMany({
-          where:   { id: { in: sharedCardIds }, isArchived: false, deletedAt: null },
-          include: { network: { select: { id: true, name: true, logoUrl: true } } },
+          where: {
+            userId:             member.userId,
+            isSharedWithFamily: true,
+            isArchived:         false,
+            deletedAt:          null,
+            expiryDate:         { gte: now },
+          },
+          include: CARD_INCLUDE,
         });
-        const sharedByMap = new Map(sharedItems.map((i) => [i.giftCardId, i.sharedBy]));
+        const sharedBy = member.user.displayName ?? member.user.email ?? null;
+        console.log(`[FAMILY] Found ${sharedCards.length} shared cards from ${sharedBy}`);
         for (const c of sharedCards) {
-          const sharer = sharedByMap.get(c.id);
-          safe.push(mapCard(c, {
-            isShared: true,
-            sharedBy: sharer?.displayName ?? sharer?.email ?? null,
-          }));
+          result.push(mapCard(c, { isShared: true, sharedBy }));
         }
       }
     }
 
-    return NextResponse.json(safe);
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[wallet/cards GET]", err);
     return NextResponse.json({ message: "שגיאת שרת" }, { status: 500 });
