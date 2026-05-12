@@ -12,7 +12,11 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient({ log: ["warn", "error"] });
 
 // ── Scraper store names (must match what scrapers emit as storeName) ──────────
-const SCRAPER_STORE_NAMES = ["Bug", "ZAP", "KSP", "מחסני החשמל"];
+const SCRAPER_STORE_NAMES = [
+  "Bug", "ZAP", "KSP", "מחסני החשמל",
+  // SerpApi-discovered stores
+  "א.ל.מ", "שקם אלקטריק", "אבי סופר", "Last Price", "Ivory", "TMS",
+];
 
 // ── Clubs to seed with their discount rules ───────────────────────────────────
 const CLUBS_TO_SEED = [

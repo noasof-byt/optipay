@@ -12,13 +12,10 @@ import { requireAuth, getUserId }    from "@/server/auth/middleware";
 import { runSearch }                 from "@/server/search/searchOrchestrator";
 import { normalizeQuery }            from "@/lib/search/normalizer";
 import { scrapeBug }                 from "@/lib/search/scrapers/bug";
-import { scrapeZap }                 from "@/server/search/scrapers/zapScraper";
-import { scrapeKsp }                 from "@/server/search/scrapers/kspScraper";
-import { scrapePayngo }              from "@/server/search/scrapers/payngoScraper";
+import { searchWithSerpApi }         from "@/lib/search/scrapers/serpApiSearch";
 import { matchmaker, RawResult }     from "@/lib/search/matchmaker";
 import { loadUserWallet }            from "@/server/search/matchmaker/walletLoader";
 import { prisma }                    from "@/lib/prisma";
-import type { LivePrice }            from "@/types/search";
 
 // ── GET (legacy) ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -84,41 +81,20 @@ export async function POST(req: NextRequest) {
     const normalized = await normalizeQuery(query);
     console.log("[SEARCH] Normalized query:", normalized);
 
-    // ── Step 2: Fetch from all 4 scrapers concurrently ─────────────────────
-    // ZAP/KSP/Payngo return LivePrice[]; Bug returns RawResult[].
-    const productName = normalized.canonical || query;
-    console.log("[SEARCH] Starting all 4 scrapers...");
-    const [bugR, zapR, kspR, payngoR] = await Promise.allSettled([
+    // ── Step 2: Fetch from Bug scraper + SerpApi concurrently ─────────────
+    console.log("[SEARCH] Starting Bug scraper + SerpApi...");
+    const [bugResults, serpResults] = await Promise.allSettled([
       scrapeBug(query),
-      scrapeZap(query),
-      scrapeKsp(query),
-      scrapePayngo(query),
+      searchWithSerpApi(query),
     ]);
 
-    console.log("[SEARCH] Bug:",    bugR.status    === "fulfilled" ? bugR.value.length    : bugR.reason, "results");
-    console.log("[SEARCH] ZAP:",    zapR.status    === "fulfilled" ? zapR.value.length    : zapR.reason, "results");
-    console.log("[SEARCH] KSP:",    kspR.status    === "fulfilled" ? kspR.value.length    : kspR.reason, "results");
-    console.log("[SEARCH] Payngo:", payngoR.status === "fulfilled" ? payngoR.value.length : payngoR.reason, "results");
+    const bugData  = bugResults.status  === "fulfilled" ? bugResults.value  : [];
+    const serpData = serpResults.status === "fulfilled" ? serpResults.value : [];
 
-    // Convert LivePrice[] → RawResult[] for ZAP/KSP/Payngo
-    function livePricesToRaw(prices: LivePrice[]): RawResult[] {
-      return prices.map((p) => ({
-        store:         p.source as RawResult["store"],
-        storeName:     p.storeName,
-        productName,
-        originalPrice: p.price,
-        imageUrl:      "",
-        productUrl:    p.url,
-      }));
-    }
+    console.log("[SEARCH] Bug:",     bugData.length,  "results");
+    console.log("[SEARCH] SerpApi:", serpData.length, "results");
 
-    // Flatten fulfilled results only
-    const allResults: RawResult[] = [
-      ...(bugR.status    === "fulfilled" ? bugR.value                     : []),
-      ...(zapR.status    === "fulfilled" ? livePricesToRaw(zapR.value)    : []),
-      ...(kspR.status    === "fulfilled" ? livePricesToRaw(kspR.value)    : []),
-      ...(payngoR.status === "fulfilled" ? livePricesToRaw(payngoR.value) : []),
-    ];
+    const allResults: RawResult[] = [...bugData, ...serpData];
 
     // ── Step 3: Run matchmaker ─────────────────────────────────────────────
     const wallet = await loadUserWallet(userId);

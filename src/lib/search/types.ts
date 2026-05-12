@@ -6,7 +6,7 @@
  */
 
 export interface RawResult {
-  store:         "bug" | "zap" | "ksp" | "payngo";
+  store:         string;
   storeName:     string;
   productName:   string;
   originalPrice: number;
