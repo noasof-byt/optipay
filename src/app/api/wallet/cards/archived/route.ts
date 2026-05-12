@@ -14,8 +14,16 @@ export async function GET(req: NextRequest) {
   if (authError) return authError;
   const userId = getUserId(req);
 
+  const now = new Date();
   const cards = await prisma.giftCard.findMany({
-    where:   { userId, isArchived: true, deletedAt: null },
+    where: {
+      userId,
+      deletedAt: null,
+      OR: [
+        { isArchived: true },
+        { expiryDate: { lt: now } },
+      ],
+    },
     include: { network: { select: { id: true, name: true, logoUrl: true } } },
     orderBy: { archivedAt: "desc" },
   });

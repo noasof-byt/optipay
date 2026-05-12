@@ -37,6 +37,16 @@ export default function NotificationsPage() {
     setNotifs(data.notifications ?? []);
     setUnread(data.unreadCount   ?? 0);
     setLoading(false);
+    // Auto-mark all as read when the page is visited
+    if ((data.unreadCount ?? 0) > 0) {
+      fetch("/api/notifications?all=true", {
+        method:  "PATCH",
+        headers: { Authorization: `Bearer ${getToken()}` },
+      }).then(() => {
+        setUnread(0);
+        setNotifs((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);

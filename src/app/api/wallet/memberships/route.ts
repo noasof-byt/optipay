@@ -31,17 +31,61 @@ export async function GET(req: NextRequest) {
       orderBy: { club: { name: "asc" } },
     });
 
-    return NextResponse.json(memberships.map((m) => ({
-      id:               m.id,
-      clubId:           m.clubId,
-      clubName:         m.club.name,
-      clubLogo:         m.club.logoUrl,
-      baseDiscount:     Number(m.club.baseDiscountPercentage),
-      isPaidMembership: m.isPaidMembership,
-      monthlyFee:       Number(m.monthlyFee),
-      expiryDate:       m.expiryDate,
-      lastUsedAt:       m.lastUsedAt,
-    })));
+    function mapMembership(m: typeof memberships[0], extra?: { isShared?: boolean; sharedBy?: string | null }) {
+      return {
+        id:               m.id,
+        clubId:           m.clubId,
+        clubName:         m.club.name,
+        clubLogo:         m.club.logoUrl,
+        baseDiscount:     Number(m.club.baseDiscountPercentage),
+        isPaidMembership: m.isPaidMembership,
+        monthlyFee:       Number(m.monthlyFee),
+        expiryDate:       m.expiryDate,
+        lastUsedAt:       m.lastUsedAt,
+        isShared:         extra?.isShared ?? false,
+        sharedBy:         extra?.sharedBy ?? null,
+      };
+    }
+
+    const result = memberships.map((m) => mapMembership(m));
+
+    // ── Include memberships shared by family group members ─────────────────
+    const familyMembership = await prisma.familyGroupMember.findUnique({
+      where:  { userId },
+      select: { familyGroupId: true },
+    });
+    if (familyMembership) {
+      const sharedItems = await prisma.familySharedItem.findMany({
+        where: {
+          familyGroupId:  familyMembership.familyGroupId,
+          itemType:       "MEMBERSHIP",
+          sharedByUserId: { not: userId },
+        },
+        select: {
+          membershipId: true,
+          sharedBy:     { select: { displayName: true, email: true } },
+        },
+      });
+      const sharedMembershipIds = sharedItems.map((i) => i.membershipId).filter(Boolean) as string[];
+      if (sharedMembershipIds.length) {
+        const sharedMemberships = await prisma.userClubMembership.findMany({
+          where:   { id: { in: sharedMembershipIds }, isActive: true },
+          include: { club: { select: { id: true, name: true, logoUrl: true, baseDiscountPercentage: true } } },
+        });
+        const sharedByMap = new Map(sharedItems.map((i) => [i.membershipId, i.sharedBy]));
+        const existingClubIds = new Set(result.map((m) => m.clubId));
+        for (const m of sharedMemberships) {
+          if (existingClubIds.has(m.clubId)) continue; // user already has this club
+          const sharer = sharedByMap.get(m.id);
+          result.push(mapMembership(m, {
+            isShared: true,
+            sharedBy: sharer?.displayName ?? sharer?.email ?? null,
+          }));
+        }
+      }
+    }
+
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[wallet/memberships GET]", err);
     return NextResponse.json({ message: "שגיאת שרת" }, { status: 500 });

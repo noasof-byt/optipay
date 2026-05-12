@@ -128,6 +128,71 @@ export async function loadUserWallet(userId: string): Promise<UserWallet> {
     ruleDescription: r.ruleDescription,
   }));
 
+  // ── Family shared items ───────────────────────────────────────────────────
+  const familyMember = await prisma.familyGroupMember.findUnique({
+    where:  { userId },
+    select: { familyGroupId: true },
+  });
+  if (familyMember) {
+    const sharedItems = await prisma.familySharedItem.findMany({
+      where: {
+        familyGroupId:  familyMember.familyGroupId,
+        sharedByUserId: { not: userId },
+      },
+      select: { itemType: true, giftCardId: true, membershipId: true },
+    });
+
+    const sharedCardIds = sharedItems
+      .filter((i) => i.itemType === "GIFT_CARD" && i.giftCardId)
+      .map((i) => i.giftCardId!);
+
+    const sharedMembershipIds = sharedItems
+      .filter((i) => i.itemType === "MEMBERSHIP" && i.membershipId)
+      .map((i) => i.membershipId!);
+
+    if (sharedCardIds.length) {
+      const sharedCards = await prisma.giftCard.findMany({
+        where: {
+          id:         { in: sharedCardIds },
+          isArchived: false,
+          expiryDate: { gt: now },
+          balance:    { gt: 0 },
+        },
+        include: { network: { select: { id: true, name: true } } },
+      });
+      for (const c of sharedCards) {
+        giftCards.push({
+          id:          c.id,
+          networkId:   c.networkId,
+          networkName: c.network?.name ?? null,
+          storeName:   c.storeSpecificName,
+          balance:     Number(c.balance),
+          expiryDate:  c.expiryDate,
+          hint:        c.cardNumberHint,
+          isFavorite:  false,
+        });
+      }
+    }
+
+    if (sharedMembershipIds.length) {
+      const sharedMemberships = await prisma.userClubMembership.findMany({
+        where:   { id: { in: sharedMembershipIds }, isActive: true },
+        include: { club: { select: { id: true, name: true, isActive: true } } },
+      });
+      for (const m of sharedMemberships) {
+        if (!m.club.isActive) continue;
+        if (memberships.some((ex) => ex.clubId === m.clubId)) continue;
+        memberships.push({
+          id:       m.id,
+          clubId:   m.clubId,
+          clubName: m.club.name,
+          isPaid:   m.isPaidMembership,
+          isActive: m.isActive,
+        });
+      }
+    }
+  }
+
   return { giftCards, memberships, clubNetworkRules };
 }
 

@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getToken } from "@/hooks/useAuth";
 
 const PAGE_TITLES: Record<string, string> = {
   "/search":               "חיפוש",
@@ -24,6 +26,16 @@ export function TopBar() {
   const pathname = usePathname();
   const router   = useRouter();
   const isHome   = pathname === "/";
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch("/api/notifications", { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data) setUnreadCount(data.unreadCount ?? 0); })
+      .catch(() => {});
+  }, [pathname]); // re-fetch whenever user navigates (catches returning from /notifications)
 
   // Don't render on auth pages — they have their own full-page layout
   if (AUTH_ROUTES.has(pathname)) return null;
@@ -75,7 +87,9 @@ export function TopBar() {
         aria-label="התראות"
       >
         <Bell size={22} />
-        <span className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-danger" aria-hidden="true" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1.5 left-1.5 w-2 h-2 rounded-full bg-danger" aria-hidden="true" />
+        )}
       </Link>
     </header>
   );

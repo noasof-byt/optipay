@@ -194,11 +194,11 @@ input[type=number] { -moz-appearance: textfield; }
 
 /* ── Accessibility overrides (applied as acc-* classes on <html>) ────────── */
 
-.acc-text-large   { font-size: 1.2rem !important; }
-.acc-text-large * { font-size: 1.2em  !important; }
+html.acc-text-large { font-size: 120% !important; }
+html.acc-text-large body, html.acc-text-large * { font-size: inherit !important; }
 
-.acc-text-xlarge   { font-size: 1.4rem !important; }
-.acc-text-xlarge * { font-size: 1.4em  !important; }
+html.acc-text-xlarge { font-size: 140% !important; }
+html.acc-text-xlarge body, html.acc-text-xlarge * { font-size: inherit !important; }
 
 .acc-high-contrast { filter: contrast(150%) !important; }
 

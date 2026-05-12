@@ -63,7 +63,7 @@ export default function RootLayout({
         {/* Restore accessibility settings before React hydration — prevents flash */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('accessibility')||'{}');var h=document.documentElement;if(s.textSize==='large')h.classList.add('acc-text-large');if(s.textSize==='xlarge')h.classList.add('acc-text-xlarge');if(s.highContrast)h.classList.add('acc-high-contrast');if(s.lineRelaxed)h.classList.add('acc-line-relaxed');if(s.reduceMotion)h.classList.add('acc-reduced-motion');}catch(e){}})();`,
+            __html: `(function(){try{var s=JSON.parse(localStorage.getItem('optipay-accessibility')||'{}');var h=document.documentElement;if(s.textSize==='large')h.classList.add('acc-text-large');if(s.textSize==='xlarge')h.classList.add('acc-text-xlarge');if(s.highContrast)h.classList.add('acc-high-contrast');if(s.lineRelaxed)h.classList.add('acc-line-relaxed');if(s.reduceMotion)h.classList.add('acc-reduced-motion');}catch(e){}})();`,
           }}
         />
         {/* Preconnect to Google Fonts for Rubik + Assistant */}

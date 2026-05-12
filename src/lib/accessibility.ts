@@ -1,4 +1,4 @@
-export const STORAGE_KEY = "accessibility";
+export const STORAGE_KEY = "optipay-accessibility";
 
 export interface A11ySettings {
   textSize:     "normal" | "large" | "xlarge";

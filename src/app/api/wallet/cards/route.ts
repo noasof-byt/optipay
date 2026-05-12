@@ -42,21 +42,12 @@ export async function GET(req: NextRequest) {
       include: { network: { select: { id: true, name: true, logoUrl: true } } },
     });
 
-    const sorted = [...cards].sort((a, b) => {
-      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
-      const aZero = Number(a.balance) === 0;
-      const bZero = Number(b.balance) === 0;
-      if (aZero !== bZero) return aZero ? 1 : -1;
-      if (sortParam === "balance") return Number(b.balance) - Number(a.balance);
-      return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
-    });
-
-    const safe = sorted.map((c) => {
+    function mapCard(c: typeof cards[0], extra?: { isShared?: boolean; sharedBy?: string | null }) {
       let cardNumber: string | null = null;
       try {
         cardNumber = c.cardNumberEncrypted ? decrypt(c.cardNumberEncrypted) : null;
       } catch {
-        cardNumber = null; // decryption failure should not crash the list
+        cardNumber = null;
       }
       return {
         id:                c.id,
@@ -74,8 +65,55 @@ export async function GET(req: NextRequest) {
         usageCount:        c.usageCount,
         lastUsedAt:        c.lastUsedAt,
         createdAt:         c.createdAt,
+        isShared:          extra?.isShared ?? false,
+        sharedBy:          extra?.sharedBy ?? null,
       };
+    }
+
+    const sorted = [...cards].sort((a, b) => {
+      if (a.isFavorite !== b.isFavorite) return a.isFavorite ? -1 : 1;
+      const aZero = Number(a.balance) === 0;
+      const bZero = Number(b.balance) === 0;
+      if (aZero !== bZero) return aZero ? 1 : -1;
+      if (sortParam === "balance") return Number(b.balance) - Number(a.balance);
+      return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
     });
+
+    const safe = sorted.map((c) => mapCard(c));
+
+    // ── Include gift cards shared by family group members ──────────────────
+    const familyMembership = await prisma.familyGroupMember.findUnique({
+      where:  { userId },
+      select: { familyGroupId: true },
+    });
+    if (familyMembership) {
+      const sharedItems = await prisma.familySharedItem.findMany({
+        where: {
+          familyGroupId:  familyMembership.familyGroupId,
+          itemType:       "GIFT_CARD",
+          sharedByUserId: { not: userId },
+        },
+        select: {
+          giftCardId: true,
+          sharedBy:   { select: { displayName: true, email: true } },
+        },
+      });
+      const sharedCardIds = sharedItems.map((i) => i.giftCardId).filter(Boolean) as string[];
+      if (sharedCardIds.length) {
+        const sharedCards = await prisma.giftCard.findMany({
+          where:   { id: { in: sharedCardIds }, isArchived: false, deletedAt: null },
+          include: { network: { select: { id: true, name: true, logoUrl: true } } },
+        });
+        const sharedByMap = new Map(sharedItems.map((i) => [i.giftCardId, i.sharedBy]));
+        for (const c of sharedCards) {
+          const sharer = sharedByMap.get(c.id);
+          safe.push(mapCard(c, {
+            isShared: true,
+            sharedBy: sharer?.displayName ?? sharer?.email ?? null,
+          }));
+        }
+      }
+    }
 
     return NextResponse.json(safe);
   } catch (err) {
