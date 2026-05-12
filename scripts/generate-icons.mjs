@@ -12,7 +12,7 @@ const logoBuffer = readFileSync(resolve(root, "public/logo.png"));
 const sizes = [16, 32, 48, 72, 96, 120, 128, 144, 152, 167, 180, 192, 384, 512];
 
 // OptiPay navy blue background: #1D3480
-const BG = { r: 29, g: 52, b: 128, alpha: 1 };
+const BG = { r: 255, g: 255, b: 255, alpha: 1 };
 
 /**
  * Creates a square icon: navy blue (#1D3480) background + logo centered with 15% padding.
