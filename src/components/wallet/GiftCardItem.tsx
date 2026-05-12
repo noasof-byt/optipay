@@ -30,6 +30,7 @@ export function GiftCardItem({
 
   const cardLabel = card.networkName ?? card.storeSpecificName ?? "כרטיס מתנה";
   const hint      = card.cardNumberHint ? `•••• ${card.cardNumberHint}` : "";
+  const isShared  = card.isShared ?? false;
 
   async function saveBalance() {
     const val = parseFloat(newBalance);
@@ -56,14 +57,26 @@ export function GiftCardItem({
             <CreditCard size={18} className="text-brand-600" />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-bold text-ink truncate">{cardLabel}</p>
-            <p className="text-xs text-ink-faint">{hint}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-bold text-ink truncate">{cardLabel}</p>
+              {isShared && (
+                <span className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                  👨‍👩‍👧 משפחתי
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-ink-faint">
+              {hint}
+              {isShared && card.sharedBy && (
+                <span className="text-ink-faint"> · שיתף: {card.sharedBy}</span>
+              )}
+            </p>
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
-          {!isArchiveView && (
+          {!isArchiveView && !isShared && (
             <button
               onClick={() => onFavorite(card.id, !card.isFavorite)}
               className={cn(
@@ -76,7 +89,7 @@ export function GiftCardItem({
             </button>
           )}
 
-          {!isArchiveView ? (
+          {!isArchiveView && !isShared ? (
             <button
               onClick={() => onArchive(card.id)}
               className="p-1.5 rounded-xl text-ink-faint hover:text-danger transition-colors"
@@ -84,7 +97,7 @@ export function GiftCardItem({
             >
               <Archive size={16} />
             </button>
-          ) : (
+          ) : isArchiveView ? (
             <button
               onClick={() => onRestore?.(card.id)}
               className="p-1.5 rounded-xl text-ink-faint hover:text-accent-500 transition-colors"
@@ -92,7 +105,7 @@ export function GiftCardItem({
             >
               <RotateCcw size={16} />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -130,7 +143,7 @@ export function GiftCardItem({
               )}>
                 {formatILS(card.balance, 0)}
               </p>
-              {!isArchiveView && (
+              {!isArchiveView && !isShared && (
                 <button
                   onClick={() => { setNewBalance(String(card.balance)); setEditing(true); }}
                   className="p-1 rounded-lg text-ink-faint hover:text-ink transition-colors"

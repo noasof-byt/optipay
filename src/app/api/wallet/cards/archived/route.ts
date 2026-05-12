@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
     orderBy: { archivedAt: "desc" },
   });
 
+  console.log(`[ARCHIVE] Found ${cards.length} archived cards`);
+
   const safe = cards.map((c) => ({
     id:                c.id,
     networkId:         c.networkId,

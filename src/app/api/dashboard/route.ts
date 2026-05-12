@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 /**
  * GET /api/dashboard
  * Returns aggregated savings data for the dashboard.
+ * Data comes from search_history (populated by POST /api/wallet/use-route).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, getUserId }    from "@/server/auth/middleware";
@@ -21,34 +22,35 @@ export async function GET(req: NextRequest) {
 
   const [monthlySavings, yearlySavings, allTimeSavings, recentRecords, clubUsage, recentHistory] =
     await Promise.all([
-      // Monthly total
-      prisma.savingsRecord.aggregate({
-        where:   { userId, purchasedAt: { gte: monthStart } },
-        _sum:    { savedAmount: true },
+      // Monthly total from search_history
+      prisma.searchHistory.aggregate({
+        where:   { userId, createdAt: { gte: monthStart }, savingsAmount: { not: null } },
+        _sum:    { savingsAmount: true },
         _count:  { id: true },
       }),
-      // Yearly total
-      prisma.savingsRecord.aggregate({
-        where:   { userId, purchasedAt: { gte: yearStart } },
-        _sum:    { savedAmount: true },
+      // Yearly total from search_history
+      prisma.searchHistory.aggregate({
+        where:   { userId, createdAt: { gte: yearStart }, savingsAmount: { not: null } },
+        _sum:    { savingsAmount: true },
         _count:  { id: true },
       }),
-      // All-time
-      prisma.savingsRecord.aggregate({
-        where:  { userId },
-        _sum:   { savedAmount: true },
+      // All-time from search_history
+      prisma.searchHistory.aggregate({
+        where:  { userId, savingsAmount: { not: null } },
+        _sum:   { savingsAmount: true },
         _count: { id: true },
       }),
       // Last 12 months grouped by month — PostgreSQL syntax
       prisma.$queryRaw<Array<{ month: string; total: number; count: bigint }>>`
         SELECT
-          TO_CHAR("purchasedAt", 'YYYY-MM')    AS month,
-          CAST(SUM("savedAmount") AS FLOAT)    AS total,
-          COUNT(*)                             AS count
-        FROM savings_records
+          TO_CHAR("createdAt", 'YYYY-MM')       AS month,
+          CAST(SUM("savingsAmount") AS FLOAT)   AS total,
+          COUNT(*)                              AS count
+        FROM search_history
         WHERE "userId" = ${userId}
-          AND "purchasedAt" >= NOW() - INTERVAL '12 months'
-        GROUP BY TO_CHAR("purchasedAt", 'YYYY-MM')
+          AND "createdAt" >= NOW() - INTERVAL '12 months'
+          AND "savingsAmount" IS NOT NULL
+        GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
         ORDER BY month ASC
       `,
       // Club usage with monthlyFee for ROI
@@ -71,7 +73,6 @@ export async function GET(req: NextRequest) {
     ]);
 
   // ── ROI per paid membership ─────────────────────────────────────────────
-  // Sum savings this month per membership
   const paidMemberships = clubUsage.filter((m) => m.isPaidMembership && Number(m.monthlyFee) > 0);
 
   const membershipSavingsThisMonth = paidMemberships.length
@@ -116,9 +117,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     savings: {
-      monthly:  Number(monthlySavings._sum.savedAmount ?? 0),
-      yearly:   Number(yearlySavings._sum.savedAmount  ?? 0),
-      allTime:  Number(allTimeSavings._sum.savedAmount  ?? 0),
+      monthly:  Number(monthlySavings._sum.savingsAmount ?? 0),
+      yearly:   Number(yearlySavings._sum.savingsAmount  ?? 0),
+      allTime:  Number(allTimeSavings._sum.savingsAmount  ?? 0),
       monthlyTransactions: monthlySavings._count.id,
       yearlyTransactions:  yearlySavings._count.id,
     },

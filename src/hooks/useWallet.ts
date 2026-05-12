@@ -18,6 +18,8 @@ export interface GiftCardItem {
   isArchived:       boolean;
   usageCount:       number;
   lastUsedAt:       string | null;
+  isShared:         boolean;
+  sharedBy:         string | null;
 }
 
 export interface MembershipItem {
@@ -29,6 +31,8 @@ export interface MembershipItem {
   isPaidMembership: boolean;
   expiryDate:       string | null;
   lastUsedAt:       string | null;
+  isShared:         boolean;
+  sharedBy:         string | null;
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
@@ -53,9 +57,8 @@ export function useGiftCards(archived = false) {
     if (!getToken()) { setCards([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const data = await apiFetch<GiftCardItem[]>(
-        `/api/wallet/cards?archived=${archived}`
-      );
+      const url = archived ? "/api/wallet/cards/archived" : "/api/wallet/cards";
+      const data = await apiFetch<GiftCardItem[]>(url);
       setCards(data);
     } catch (err: any) {
       toast({ type: "error", title: "שגיאה", description: err.message });
@@ -75,11 +78,16 @@ export function useGiftCards(archived = false) {
   }, [load]);
 
   const updateBalance = useCallback(async (id: string, balance: number) => {
-    await apiFetch(`/api/wallet/cards/${id}`, {
+    const data = await apiFetch<{ autoArchived?: boolean }>(`/api/wallet/cards/${id}`, {
       method: "PATCH",
       body:   JSON.stringify({ balance }),
     });
-    setCards((prev) => prev.map((c) => c.id === id ? { ...c, balance } : c));
+    if (data.autoArchived) {
+      setCards((prev) => prev.filter((c) => c.id !== id));
+      toast({ type: "success", title: "הכרטיס הועבר לארכיון" });
+    } else {
+      setCards((prev) => prev.map((c) => c.id === id ? { ...c, balance } : c));
+    }
   }, []);
 
   const archiveCard = useCallback(async (id: string) => {

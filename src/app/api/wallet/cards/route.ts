@@ -36,9 +36,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const sortParam = req.nextUrl.searchParams.get("sort") ?? "expiry";
+    const now = new Date();
 
     const cards = await prisma.giftCard.findMany({
-      where:   { userId, isArchived: false, deletedAt: null },
+      where:   { userId, isArchived: false, deletedAt: null, expiryDate: { gte: now } },
       include: { network: { select: { id: true, name: true, logoUrl: true } } },
     });
 
@@ -99,6 +100,7 @@ export async function GET(req: NextRequest) {
         },
       });
       const sharedCardIds = sharedItems.map((i) => i.giftCardId).filter(Boolean) as string[];
+      console.log(`[FAMILY] Found ${sharedCardIds.length} shared cards for user ${userId}`);
       if (sharedCardIds.length) {
         const sharedCards = await prisma.giftCard.findMany({
           where:   { id: { in: sharedCardIds }, isArchived: false, deletedAt: null },

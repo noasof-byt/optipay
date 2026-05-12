@@ -41,7 +41,15 @@ export function MembershipItemCard({ membership, onRemove }: Props) {
             {membership.isPaidMembership && (
               <span className="badge bg-brand-100 text-brand-700 text-[0.6rem]">בתשלום</span>
             )}
+            {membership.isShared && (
+              <span className="text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                👨‍👩‍👧 משפחתי
+              </span>
+            )}
           </div>
+          {membership.isShared && membership.sharedBy && (
+            <p className="text-[0.65rem] text-ink-faint mt-0.5">שיתף: {membership.sharedBy}</p>
+          )}
 
           <p className="text-xs text-ink-muted mt-0.5">
             הנחה בסיסית: {membership.baseDiscount}%
@@ -83,13 +91,15 @@ export function MembershipItemCard({ membership, onRemove }: Props) {
         </div>
       </div>
 
-      <button
-        onClick={() => onRemove(membership.id)}
-        className="p-1.5 rounded-xl text-ink-faint hover:text-danger transition-colors shrink-0 mt-0.5"
-        aria-label={`הסר חברות ל${membership.clubName}`}
-      >
-        <Trash2 size={16} />
-      </button>
+      {!membership.isShared && (
+        <button
+          onClick={() => onRemove(membership.id)}
+          className="p-1.5 rounded-xl text-ink-faint hover:text-danger transition-colors shrink-0 mt-0.5"
+          aria-label={`הסר חברות ל${membership.clubName}`}
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
     </div>
   );
 }

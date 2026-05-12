@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
         },
       });
       const sharedMembershipIds = sharedItems.map((i) => i.membershipId).filter(Boolean) as string[];
+      console.log(`[FAMILY] Found ${sharedMembershipIds.length} shared memberships for user ${userId}`);
       if (sharedMembershipIds.length) {
         const sharedMemberships = await prisma.userClubMembership.findMany({
           where:   { id: { in: sharedMembershipIds }, isActive: true },
